@@ -84,7 +84,8 @@ async def game():
     players.append(player1)
     players.append(player2)
     players.append(player3)
-
+    tst = msgspec.json.encode(player1)
+    msgspec.json.decode(tst, type=Player)
     # print (player1.condition)
     games.append(game := GameState(players=[].append(player1),
                                    status=GameStatus))
