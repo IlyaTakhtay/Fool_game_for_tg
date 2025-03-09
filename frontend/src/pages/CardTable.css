@@ -1,0 +1,150 @@
+.card-table {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background-color: #006400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.table__center-area {
+  position: absolute;
+  width: 290px;
+  height: 290px;
+  background-color: #2f4f2f;
+  border-radius: 5%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  text-align: center;
+  z-index: 1;
+}
+
+.table__played-cards {
+  display: flex;
+  flex-wrap: wrap; /* Позволяет картам переходить на новую строку */
+  gap: 50px;
+  max-width: 290px; /* Ширина для двух строк, можно подбирать */
+  justify-content: center;
+  color: white;
+}
+
+
+.table__card {
+  width: 50px;
+  height: 70px;
+  background-color: #3a3f47;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size:80px;
+  margin: 0 5px;
+}
+
+
+.card-table__players {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.player {
+  position: absolute;
+  text-align: center;
+  color: white;
+  /* width: 200px; */
+}
+
+.player__info {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  justify-content: center;
+  gap: 1vw;
+}
+
+/* Стили для фотографии профиля */
+.player__profile-image {
+  width: 40px; /* Вы можете изменить размер под свои нужды */
+  height: 40px;
+  border-radius: 50%; /* Делаем фото круглым */
+  margin-bottom: 8px; /* Отступ между фотографией и именем */
+  background-color: #3a3f47;
+  transition: border 0.3s ease; /* Плавный переход цвета рамки */
+}
+
+.border-green {
+  border: 2px solid green;
+}
+
+.border-red {
+  border: 2px solid red;
+}
+
+.player__cards {
+  display: flex;
+  justify-content: center;  /* Центрирует карты по горизонтали */
+  align-items: center;  /* Центрирует карты по вертикали */
+  flex-direction: row;
+  position: relative;
+}
+
+
+
+.player--0 { display: none; }
+.player--1 { top: 1%; left: 50%; transform: translate(-50%, 0); }
+.player--2 { top: 30%; left: 85%; transform: translate(0, -50%); }
+.player--3 { top: 70%; left: 85%; transform: translate(0, -50%); }
+.player--4 { top: 70%; left: 1%; transform: translate(0, -50%); }
+.player--5 { top: 30%; left: 1%; transform: translate(0, -50%); }
+
+.card-table__your-cards {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  box-sizing: border-box;
+  z-index: 2;
+}
+
+.card--face, .card--back {
+  width: 5.3vw; /* Ширина карты будет 10% от ширины окна */
+  height: 16.7vh; /* Высота карты будет 14% от высоты окна */
+  background-color: #3a3f47;
+  border-radius: 5px;
+  /* margin: 0 5px; */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 90px;
+  cursor: grab;
+}
+
+
+.card--back {
+  background: url('../image/imperial_back.png');  /* Укажите путь к изображению задней стороны карты */
+  overflow: overlay;
+  background-size: cover; /* Заполняет весь контейнер */
+  /* background-position: center; */
+  margin-left: -4vw;  /* Смещение карт */
+  padding: 0.5vh;
+  /* background-color: #50565e; */
+}
+
+.card--back:first-child {
+  margin-left: 0;  /* Для первой карты, чтобы не было смещения */
+}

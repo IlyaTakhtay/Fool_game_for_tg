@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chat</title>
+        <style>
+            #hand, #table {
+                margin: 10px 0;
+            }
+            .card {
+                display: inline-block;
+                margin: 5px;
+                padding: 10px;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                cursor: pointer;
+            }
+            .card.selected {
+                border-color: #f00;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>WebSocket Chat</h1>
+        <h2>Your ID: <span id="ws-id"></span></h2>
+        <form action="" onsubmit="sendMessage(event)">
+            <input type="text" id="messageText" autocomplete="off"/>
+            <button>Send</button>
+        </form>
+        <ul id='messages'></ul>
+        <div id="hand"></div>
+        <div id="table"></div>
+        <script>
+            var client_id = Date.now();
+            document.querySelector("#ws-id").textContent = client_id;
+            var ws = new WebSocket(`ws://localhost:80/ws/${client_id}`);
+            var selectedCard = null;
+
+            ws.onmessage = function(event) {
+                var data = JSON.parse(event.data);
+                if (data.hand) {
+                    updateHand(data.hand);
+                } else if (data.table) {
+                    updateTable(data.table);
+                } else {
+                    var messages = document.getElementById('messages');
+                    var message = document.createElement('li');
+                    var content = document.createTextNode(event.data);
+                    message.appendChild(content);
+                    messages.appendChild(message);
+                }
+            };
+
+            function sendMessage(event) {
+                var input = document.getElementById("messageText");
+                ws.send(input.value);
+                input.value = '';
+                event.preventDefault();
+            }
+
+            function updateHand(cards) {
+                var hand = document.getElementById('hand');
+                hand.innerHTML = '';
+                cards.forEach(card => {
+                    var cardElement = document.createElement('div');
+                    cardElement.className = 'card';
+                    cardElement.textContent = `${card.suit} ${card.rank}`;
+                    cardElement.onclick = function() {
+                        if (selectedCard) {
+                            selectedCard.classList.remove('selected');
+                        }
+                        this.classList.add('selected');
+                        selectedCard = this;
+                    };
+                    hand.appendChild(cardElement);
+                });
+            }
+
+            function updateTable(cards) {
+                var table = document.getElementById('table');
+                table.innerHTML = '';
+                cards.forEach(card => {
+                    var cardElement = document.createElement('div');
+                    cardElement.className = 'card';
+                    cardElement.textContent = `${card.suit} ${card.rank}`;
+                    cardElement.onclick = function() {
+                        if (selectedCard) {
+                            playCard(selectedCard.textContent, this.textContent);
+                        }
+                    };
+                    table.appendChild(cardElement);
+                });
+            }
+
+            function playCard(handCard, tableCard) {
+                var message = JSON.stringify({
+                    action: "play_cards",
+                    attack_card: handCard,
+                    defense_card: tableCard
+                });
+                ws.send(message);
+                selectedCard.classList.remove('selected');
+                selectedCard = null;
+            }
+        </script>
+    </body>
+</html>

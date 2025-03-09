@@ -4,22 +4,25 @@ from typing import Optional, Self, Generator  # type: ignore
 import enum
 import random
 
+import logging
+
 import msgspec
 # import asyncpg  # type: ignore
 # import redis
 
 
 class PlayerStatus(enum.Enum):
-    UNREADY = 0,
-    READY = 1,
+    UNREADY = 0
+    READY = 1
     DEFENDED = 2
-    DRAWBACK = 3.
+    DRAWBACK = 3
 
 
 class GameStatus(enum.Enum):
-    FIGHT = 1,
-    END_TURN = 2,
-    REPLENISHING = 3,
+    GAME_FORMING = 0
+    FIGHT = 1
+    END_TURN = 2
+    REPLENISHING = 3
     GAME_OVER = 4
 
 
@@ -31,11 +34,6 @@ class Suit(enum.Enum):
 
 
 class Rank(enum.Enum):
-    # ONE = 1
-    # TWO = 2
-    # THREE = 3
-    # FOUR = 4
-    # FIVE = 5
     SIX = 6
     SEVEN = 7
     EIGHT = 8
@@ -48,17 +46,17 @@ class Rank(enum.Enum):
 
 
 class Card(msgspec.Struct, frozen=True):
-    __rank: int
-    __suit: Suit
+    _rank: int
+    _suit: Suit
 
     def __post_init__(self):
-        if not isinstance(self.__rank, int):
+        if not isinstance(self._rank, int):
             raise TypeError("Expected int object")
-        if not isinstance(self.__suit, Suit):
+        if not isinstance(self._suit, Suit):
             raise TypeError("Expected Suit obejct")
-        if self.__suit.value > 3 or self.__suit.value < 0:
+        if self._suit.value > 3 or self._suit.value < 0:
             raise ValueError("Suit except value from 0 to 3")
-        if self.__rank > 14 or self.__rank < 6:
+        if self._rank > 14 or self._rank < 6:
             raise ValueError("Rank except value from 6 to 14")
 
     @property
@@ -70,19 +68,19 @@ class Card(msgspec.Struct, frozen=True):
         return self._suit
 
     def __gt__(self, another: Self):
-        self.__isCard(another)
-        return (self.__rank > another.rank) and (self.__suit == another.suit)
+        self._isCard(another)
+        return (self._rank > another.rank) and (self._suit == another.suit)
 
     def __lt__(self, another: Self):
-        self.__isCard(another)
-        return (self.__rank < another.rank) and (self.__suit == another.suit)
+        self._isCard(another)
+        return (self._rank < another.rank) and (self._suit == another.suit)
 
-    def __isCard(self, another):
-        if not isinstance(self, another):
+    def _isCard(self, another):
+        if not isinstance(another, Card):
             raise TypeError("Except Card object")
-    
+
     def __eq__(self, another: Self):
-        self.__isCard(another)
+        self._isCard(another)
         return (another.rank == self.rank) and (another.suit == self.suit)
 
     def texted_suit(self):
@@ -93,7 +91,7 @@ class Card(msgspec.Struct, frozen=True):
         Returns:
             str: The translated suit title.
         """
-        match self.suit:
+        match self._suit:
             case 0:
                 return "Heart"
             case 1:
@@ -111,7 +109,7 @@ class Card(msgspec.Struct, frozen=True):
         Returns:
             str: The translated rank title.
         """
-        match self.suit:
+        match self._rank:
             case 11:
                 return "Jack"
             case 12:
@@ -120,65 +118,86 @@ class Card(msgspec.Struct, frozen=True):
                 return "King"
             case 14:
                 return "Ace"
+        return str(self._rank)
 
 
 class Trump_Card(Card, frozen=True):
 
+    def __post_init__(self):
+        return super().__post_init__()
+
     def __gt__(self, another: Card):
-        self.__isCard(another)
-        if self.__suit == another.__suit:
-            return self.__rank > another.__rank
+        self._isCard(another)
+        if self._suit == another._suit:
+            return self._rank > another._rank
+        return False
 
     def __lt__(self, another: Card):
-        self.__isCard(another)
-        if self.__suit == another.__suit:
-            return self.__rank < another.__rank
+        self._isCard(another)
+        if self._suit == another._suit:
+            return self._rank < another._rank
+        return False
 
 
-class Player(msgspec.Struct):
-    __nickname: str
-    __identifier: str
-    status: PlayerStatus
-    __cards: set[Card | None]
+player_fields_client = {
+    "_nickname": "nickname",
+    "_identifier": "id",
+    "status": "status",
+    "_cards": "cards"
+}
 
-    @property
-    def identifier(self):
-        return self.__identifier
+
+class Player(msgspec.Struct, rename=player_fields_client):
+    _nickname: str
+    _identifier: str
+    status: PlayerStatus = PlayerStatus.UNREADY
+    _cards: list[Card | None] = msgspec.field(default_factory=list)
 
     @property
     def nickname(self):
-        return self.__nickname
+        return self._nickname
+
+    @nickname.setter
+    def nickname(self, val):
+        # self.nickname = val
+        raise AttributeError("is private")
+
+    @property
+    def identifier(self):
+        return self._identifier
 
     @property
     def cards(self):
-        return self.__cards
+        return self._cards
 
-    def add_card(self, cards: set[Card] | Card):
-        if isinstance(cards, set):
-            for card in cards:
-                self.__cards.add(card)
-        if isinstance(cards, Card):
-            self.__cards.add(cards)
+    def get_trump_cards(self):
+        return [card for card in self.cards if isinstance(card, Trump_Card)]
 
-    def remove_card(self, cards: set[Card] | Card):
-        if isinstance(cards, set):
+    def add_card(self, cards: list[Card] | Card):
+        if isinstance(cards, list):
+            self._cards.extend(cards)
+        elif isinstance(cards, Card):
+            self._cards.append(cards)
+
+    def remove_card(self, cards: list[Card] | Card):
+        if isinstance(cards, list):
             for card in cards:
-                self.__cards.remove(card)
-        if isinstance(cards, Card):
-            self.__cards.remove(cards)
+                self._cards.remove(card)
+        elif isinstance(cards, Card):
+            self._cards.remove(cards)
 
     def has_card(self, input_card: Card) -> bool:
-        for card in self.cards:
-            return card == input_card
-        return False
+        return input_card in self.cards
 
     def __eq__(self, player: Self):
-        if isinstance(self, player):
+        if isinstance(player, Player):
             return self.identifier == player.identifier
 
 
 class TableState(msgspec.Struct):
-    __table_cards: list[tuple[Card, Optional[Card]]] = []
+    __table_cards: list[
+        tuple[Card, Optional[Card]]
+        ] = msgspec.field(default_factory=list)
     cards_limit: int = 5
 
     @property
@@ -206,9 +225,11 @@ class TableState(msgspec.Struct):
         Adds one or more attack cards to the table with no associated
         defend cards.
         Args:
-            cards (list[Card] | Card): A single Card object or a list of Card objects to be added as attack cards.
+            cards (list[Card] | Card): A single Card object or a list of
+            Card objects to be added as attack cards.
         Raises:
-            TypeError: If the provided argument is neither a Card nor a list of Cards.
+            TypeError: If the provided argument is neither a Card nor a list
+            of Cards.
         """
         cards = cards if isinstance(cards, list) else [cards]
         for card in cards:
@@ -243,8 +264,6 @@ class TableState(msgspec.Struct):
                 elif defend_card == table_attack_card:
                     if self.__is_valid_to_defend(defend_card, attack_card):
                         self.__table_cards[i] = (defend_card, attack_card)
-
-
     # def add_pair_card()
 
     def get_attack_cards(self) -> list[Card]:
@@ -257,15 +276,22 @@ class TableState(msgspec.Struct):
         self.__table_cards.clear()
 
 
+
 class GameState(msgspec.Struct):
+    game_id: int
     room_size: int
-    players_sequence = None
-    players: list[Player] = []  # safety,check msgspec to approve
+    password: str | None = None
     status: GameStatus | None = None
+    players_sequence: Generator | None = None
+    attack_player_id: int | None = None
+    players: list[Player] = msgspec.field(default_factory=list)
     trump_card: Optional[Card | Suit] = None
-    deck_cards: list[Card | Trump_Card] = []  # safety,check msgspec to approve
-    table_state: TableState = TableState()
+    deck_cards: list[Card | Trump_Card] = msgspec.field(default_factory=list)
+    table_state: TableState = msgspec.field(default_factory=TableState)
     cards_fall: bool = False
+
+    def __hash__(self):
+        return self.game_id
 
     def __deck_generation(self):
         trump_suit = random.choice(list(Suit))
@@ -297,7 +323,7 @@ class GameState(msgspec.Struct):
         first_player = None
 
         for player in self.players:
-            player_min_card = self.__get_min_trump_card(player)  
+            player_min_card = self.__get_min_trump_card(player)
             if (min_card is not None and player_min_card < min_card):
                 min_card = player_min_card
                 first_player = player
@@ -305,9 +331,11 @@ class GameState(msgspec.Struct):
             return random.choice(self.players)
         return first_player
 
-    def __find_player_by_identifier(self, identifier: str) -> Player:
+    def __find_player_by_identifier(self, identifier: str) -> Player | None:
         if isinstance(identifier, str):
-            return next((player for player in self.players if player.identifier == identifier), None)
+            return next((
+                player for player in self.players if
+                player.identifier == identifier), None)
         else:
             raise TypeError("expected str")
 
@@ -333,18 +361,19 @@ class GameState(msgspec.Struct):
                 game_player.status = data.status
 
     def add_player(self, player: Player) -> bool:
-        if isinstance(player, Player):
+        if not isinstance(player, Player):
+            raise TypeError("Except Player type")
+        elif all(player.identifier
+                 != game_player.identifier for game_player in self.players):
             if len(self.players) < self.room_size:
                 self.players.append(player)
                 return True
-            else:
-                return False
-        else:
-            raise TypeError("Except Player type")
+        return False
 
     def remove_player(self, player: Player | str):
         if isinstance(player, str):
-            self.players.remove(self.__find_player_by_identifier(player))
+            if pl := self.__find_player_by_identifier(player):
+                self.players.remove(pl)
         elif isinstance(player, Player):
             self.players.remove(player)
         else:
@@ -357,16 +386,67 @@ class GameState(msgspec.Struct):
             else [(input_player.identifier, input_player.cards)]
         ):
             player = self.__find_player_by_identifier(key)
-            if action == "add":
-                player.add_card(set(cards))
-            elif action == "remove":
-                player.remove_card(set(cards))
+            if action == "add" and player:
+                player.add_card(cards)
+            elif action == "remove" and player:
+                player.remove_card(cards)
+
+    def __is_valid_to_attack(self, player: Player) -> bool:
+        game_player = self.__find_player_by_identifier(player.identifier)
+        if game_player is not None:
+            return (
+                self.status == GameStatus.FIGHT
+                and player.identifier == self.attack_player_id
+                and all(game_player.has_card(card) for card in player.cards)
+                )
+        return False
+
+    def __is_valid_to_defend(self, player: Player) -> bool:
+        game_player = self.__find_player_by_identifier(
+            str(self.attack_player_id)
+            )
+
+        if game_player is not None:
+            index_of_found_player = self.players.index(game_player)
+            defend_player = self.players[
+                (index_of_found_player + 1) % len(self.players)]
+
+            return (
+                player.identifier == defend_player.identifier
+                and all(defend_player.has_card(card) for card in player.cards)
+                )
+
+        return False
 
     def add_card_to_player(self, input_player: Player | dict):
         self.__update_player_cards(input_player, "add")
 
     def delete_card_from_player(self, input_player: Player | dict):
         self.__update_player_cards(input_player, "remove")
+
+    def data_communication(self, data: Player, extention: Card | None):
+        if isinstance(data, Player):
+            # ТУТ СРАЗУ ПРОВЕРЯЕМ ЕСТЬ ЛИ У НАС ТАКОЙ ИГРОК, ЕСЛИ НЕТ ТО ГГ
+            # А ЕСЛИ ДА, ТО МОЖЕМ ПЕРЕДАВАТЬ ВО ВСЕ ДРУГИЕ ФУНКЦИИ И НЕ ДРОЧИТЬ ПОИСК ИГРОКА ПО ТЫЩУ РАЗ
+            if data.status:
+                self.update_player_status(data=data)
+                status_result = {data.identifier, data.status}
+            if data.cards:
+                if self.__is_valid_to_attack(data):
+                    self.table_state.add_attack_card(data.cards)
+                    self.delete_card_from_player(data.cards)
+                    table_cards = self.table_state.table_cards
+                elif self.__is_valid_to_defend(data) and extention:
+                    self.table_state.add_defend_card(extention, data.cards)
+                    self.delete_card_from_player(data.cards)
+                    pl = self.__find_player_by_identifier(data.identifier)
+                    if pl: # это бы пораньше перенести и всю логику перелопатить. ВООБЩЕ САМОй ПЕРВОЙ ПРОВВЕРКОЙ ДОЛЖНО БЫТЬ
+                        player_cards = pl.cards
+            return status_result, table_cards, player_cards
+
+    def __clear_all_player_status(self):
+        for player in self.players:
+            player.status = PlayerStatus.UNREADY
 
     def __init_players_sequence(self, first_player: Player):
         first_player_index = self.players.index(first_player)
@@ -376,6 +456,7 @@ class GameState(msgspec.Struct):
         )
         while True:
             for index, player in enumerate(self.players):
+                self.attack_player_id = index
                 yield index, player
 
     def start_game(self):
@@ -389,14 +470,16 @@ class GameState(msgspec.Struct):
         """
         self.__deck_generation()
         for player in self.players:  # filling player's hand
-            self.fill_player_cards(player)
+            self.replish_player_cards(player)
         first_player = self.__get_who_goes_first()  # выбрали игрока атакующего
-        self.players_sequence = self.__init_players_sequence(first_player)  
+        self.players_sequence = self.__init_players_sequence(first_player)
         # запустили генерацию хода
-        print(next(self.players_sequence))
+        # logging.debug(f"SESSSSS{[player.get_trump_cards() for player in self.players]}")
+        # logging.debug(f"SEXSEXSEX{next(self.players_sequence)}")
+        self.__clear_all_player_status()
         # создаем итератор по ходам игроков
 
-    def fill_player_cards(self, player: Player):
+    def replish_player_cards(self, player: Player):
         """
         Logic to only fill player's hand
         This doesn't have logic for operating the sequence of drawing
@@ -409,67 +492,47 @@ class GameState(msgspec.Struct):
     def player_drawback(self, player: Player):
         if (len(self.table_state.get_attack_cards()) !=
                 len(self.table_state.get_defend_cards())):
-            player.add_card(set(self.deck_cards))
-            self.table_state.clear_table()
+            player.add_card(self.deck_cards)
 
-    def next_turn(self):
+    def __check_game_over(self) -> Player | bool:
+        """
+        Check end game condition and return loser
+        """
+        self.status = GameStatus.GAME_OVER
+        if (
+            sum(not pl.cards for pl in self.players) == len(self.players)-1 and
+            not self.deck_cards
+        ):
+            return next(pl for pl in self.players if pl.cards)
+        return False
+
+    def next_turn(self):  # короче тут прям дрисня какая-то и по code style и по логике, все переделать
         """
         Logic to prepare game area to next turn
         """
-        if self.players_sequence
+        def set_table_lim_comparable_hand_size():
+            if self.table_state.cards_limit > len(new_def.cards):
+                self.table_state.cards_limit = len(new_def.cards)
 
-        pass
+        if loser := self.__check_game_over():
+            return loser   # Игра завершена
+        # раздача карт игрокам
+        self.replish_player_cards(self.players[self.attack_player_id])
+        for player in (
+            self.players[self.attack_player_id:]
+            + self.players[:self.attack_player_id]
+        ):  # обходим всех игроков по очереди и раздаем им карты, начиная с защищавшегося
+            self.replish_player_cards(player)
+        _, def_player = next(self.players_sequence)
+        if def_player.status == PlayerStatus.DRAWBACK:
+            self.player_drawback()
+            _, new_def = next(self.players_sequence)
+            set_table_lim_comparable_hand_size()
+        else:
+            self.replish_player_cards(def_player)
+            self.cards_fall = True
+            self.table_state.cards_limit = 6  # если мы здесь-первое бито было
+            set_table_lim_comparable_hand_size()
+        self.table_state.clear_table()
+        self.__clear_all_player_status()
 
-    def fight(self):
-        """
-        fighting players logic
-        """
-        pass
-
-    def end_game(self):
-        """
-        ending game logic
-        """
-        pass
-
-
-class GameUtility():
-
-    @staticmethod
-    def hand_filter(player: Player):
-        """
-        logic of hand to filter cards
-        """
-
-    @staticmethod
-    def player_iteration():
-        """
-        logic wchich player's move
-        making with generator and yield word
-        next turn with operator next()
-        does we need a next player information ?
-        а здесь разве можем ? нам же нужен доступ к списку игроков
-        """
-        pass
-
-    @staticmethod
-    def status_iteration():
-        """
-        logic wchich phase of game
-        making with generator and yield word
-        next turn with operator next()
-        а тут к текущему статусу, а нет, но хранить то где-то надо итератор, или нет ? надо же
-        """
-        pass
-
-
-
-# class BaseModel:
-#     db = None
-
-#     @classmethod
-#     async def insert(cls, ):
-#         pass
-
-#     async def get_all(cls, ):
-#         pass
