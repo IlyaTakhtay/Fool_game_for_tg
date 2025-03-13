@@ -32,7 +32,7 @@ import asyncpg  # type: ignore
 import msgspec
 
 
-import app.module.database.game_interface as Game
+import backend.app.game_interface as Game
 
 logging.basicConfig(
     level=logging.DEBUG,  # Уровень логирования(DEBUG,INFO,WARNING,ERROR,CRIT)
