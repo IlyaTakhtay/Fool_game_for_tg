@@ -1,84 +1,8 @@
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Any, Optional
 
-from backend.app.contracts.game_contract import PlayerInput, PlayerAction, ActionResult, StateResponse
-from backend.app.models.game import FoolGame
+from backend.app.utils.game_interface import GameState, Game
 from backend.app.models.player import Player, PlayerStatus
-
-class GameState(ABC):
-    """Абстрактный базовый класс для всех состояний игры с улучшенным интерфейсом"""
-    
-    def __init__(self, game: FoolGame) -> None:
-        self.game:FoolGame = game
-    
-    @abstractmethod
-    def enter(self) -> Dict[str, Any]:
-        """
-        Вызывается при входе в состояние
-        
-        Returns:
-            Dict[str, Any]: Информация о состоянии для отображения
-        """
-        pass
-    
-    
-    @abstractmethod
-    def handle_input(self, player_input: PlayerInput) -> StateResponse:
-        """
-        Обрабатывает ввод игрока
-        
-        Args:
-            player_input: Структурированный ввод от игрока
-            
-        Returns:
-            StateResponse: Результат обработки ввода с информацией о следующем состоянии
-        """
-        pass
-    
-    @abstractmethod
-    def exit(self) -> Dict[str, Any]:
-        """
-        Вызывается при выходе из состояния
-        
-        Returns:
-            Dict[str, Any]: Информация о результатах состояния
-        """
-        pass
-    
-    def update(self) -> Optional[str]:
-        """
-        Проверяет условия для перехода в другое состояние и обнолвяет состояние
-        
-        Returns:
-           Optional[str]: Имя следующего состояния или None, если переход не нужен
-        """
-        next_state = self.check_switch_condition()
-        return next_state if next_state != self.__class__.__name__ else None
-
-
-    def get_state_info(self) -> Dict[str, Any]:
-        """
-        Возвращает информацию о текущем состоянии
-        
-        Returns:
-            Dict[str, Any]: Информация о состоянии
-        """
-        return {
-            "state_name": self.__class__.__name__,
-            "description": self.__doc__,
-            "allowed_actions": self.get_allowed_actions()
-        }
-    
-    @abstractmethod
-    def get_allowed_actions(self) -> Dict[int, List[PlayerAction]]:
-        """
-        Возвращает список разрешенных действий для каждого игрока
-        
-        Returns:
-            Dict[int, List[PlayerAction]]: Словарь {id_игрока: [разрешенные_действия]}
-        """
-        pass
-
+from backend.app.contracts.game_contract import PlayerInput, PlayerAction, ActionResult, StateResponse
 class LobbyState(GameState):
     """Состояние ожидания игроков перед началом игры"""
     
@@ -117,14 +41,7 @@ class LobbyState(GameState):
         # Определение первого атакующего (у кого наименьший козырь)
         self.game.current_attacker_id = self._determine_first_attacker()
         
-        # Определение первого защищающегося (следующий по кругу)
-        try:
-            attacker_index = [p.id for p in self.game.players].index(self.game.current_attacker_id)
-        except ValueError:
-            attacker_index = 0
-        defender_index = (attacker_index + 1) % len(self.game.players)
-        self.game.current_defender_id = self.game.players[defender_index].id
-        
+        self.game.current_defender_id = self._determine_defender()
         return {
             "message": "Игра начинается!",
             "players_count": len(self.game.players),
@@ -211,10 +128,10 @@ class LobbyState(GameState):
             
             # Проверяем, можно ли начать игру (все игроки присоединились и готовы)
             if len(self.game.players) == self.game.players_limit:
-                if not self.update():
+                if not self.update(player_input):
                     return StateResponse(
                         ActionResult.SUCCESS,
-                        f"Игрок {player_input.player_id} присоединился. Ожидание готовности всех игроков.",
+                        f"Игрок {player_input.player_id} готов. Ожидание готовности всех игроков.",
                         None,
                         {"players_count": len(self.game.players)}
                     )
@@ -234,7 +151,8 @@ class LobbyState(GameState):
             None
         )
     
-    def update(self) -> Optional[StateResponse]:
+
+    def update(self, player_input: Player) -> Optional[StateResponse]:
         """
         Проверяет условия для перехода в другое состояние
         
@@ -271,6 +189,23 @@ class LobbyState(GameState):
             allowed_actions[player.id] = actions
         return allowed_actions
 
+    def _determine_defender(self) -> str:
+        """
+        Определяет защищающегося игрока (следующий по кругу после атакующего)
+        
+        Returns:
+            str: ID защищающегося игрока
+        """
+        try:
+            attacker_index = [p.id for p in self.game.players].index(self.game.current_attacker_id)
+        except ValueError:
+            attacker_index = 0
+        
+        if len(self.game.players) < 2:
+            raise ValueError("Нет игроков для определения защищающегося")
+            
+        defender_index = (attacker_index + 1) % len(self.game.players)
+        return self.game.players[defender_index].id
     
     def _determine_first_attacker(self) -> int:
         """
@@ -300,3 +235,4 @@ class LobbyState(GameState):
 
 class DrawingCardsState(GameState):
     pass
+

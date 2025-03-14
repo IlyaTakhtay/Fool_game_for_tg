@@ -117,21 +117,14 @@ def test_remove_nonexistent_card(player: Player, card_setup):
     # Убеждаемся, что рука не изменилась
     assert len(player._hand) == 2
 
-# def test_has_card(player: Player, card_setup):
-#     """Тест проверки наличия карты у игрока"""
-#     card = card_setup["six_hearts"]
-#     assert player.has_card(card) is False
-#     player.add_card(card)
-#     assert player.has_card(card) is True
-
-# def test_get_cards(player: Player, card_setup):
-#     """Тест получения всех карт из руки игрока"""
-#     player.add_card(card_setup["six_hearts"])
-#     player.add_card(card_setup["queen_spades"])
-#     cards = player.get_cards()
-#     assert len(cards) == 2
-#     assert card_setup["six_hearts"] in cards
-#     assert card_setup["queen_spades"] in cards
+def test_get_cards(player: Player, card_setup):
+    """Тест получения всех карт из руки игрока"""
+    player.add_card(card_setup["six_hearts"])
+    player.add_card(card_setup["queen_spades"])
+    cards = player.get_cards()
+    assert len(cards) == 2
+    assert card_setup["six_hearts"] in cards
+    assert card_setup["queen_spades"] in cards
 
 def test_clear_hand(player: Player, card_setup):
     """Тест очистки руки игрока"""
