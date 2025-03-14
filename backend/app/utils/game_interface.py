@@ -3,12 +3,24 @@ from typing import Any, Dict, List, Optional
 
 from backend.app.contracts.game_contract import PlayerInput, PlayerAction, ActionResult, StateResponse, StateTransition
 
+class Game(ABC):
+    @abstractmethod
+    def __init__(self, game_id: Optional[str], players_limit: int):
+        pass
+    
+    @abstractmethod
+    def handle_input(self, player_input: PlayerInput) -> StateResponse|StateTransition:
+        pass
+    
+    @abstractmethod
+    def get_game_state(self) -> Dict[str, Any]:
+        pass
+
 # Определение интерфейса для игры
 class GameState(ABC):
+    def __init__(self, game: Game) -> None:
+        self.game: Game = game
     """Абстрактный базовый класс для всех состояний игры с улучшенным интерфейсом"""
-    
-    def __init__(self, game) -> None:
-        self.game = game
     
     @abstractmethod
     def enter(self) -> Dict[str, Any]:
@@ -43,16 +55,15 @@ class GameState(ABC):
             Dict[str, Any]: Информация о результатах состояния
         """
         pass
-    
-    def update(self) -> Optional[str]:
+
+    @abstractmethod
+    def update(self) -> Optional[StateResponse]:
         """
         Проверяет условия для перехода в другое состояние и обнолвяет состояние
         
         Returns:
-           Optional[str]: Имя следующего состояния или None, если переход не нужен
+           StateResponse: Результат обработки ввода с информацией о следующем состоянии
         """
-        next_state = self.check_switch_condition()
-        return next_state if next_state != self.__class__.__name__ else None
 
 
     def get_state_info(self) -> Dict[str, Any]:
@@ -78,15 +89,4 @@ class GameState(ABC):
         """
         pass
 
-class Game(ABC):
-    @abstractmethod
-    def __init__(self, game_id: Optional[str], players_limit: int):
-        pass
-    
-    @abstractmethod
-    def handle_input(self, player_input: PlayerInput) -> StateResponse|StateTransition:
-        pass
-    
-    @abstractmethod
-    def get_game_state(self) -> Dict[str, Any]:
-        pass
+

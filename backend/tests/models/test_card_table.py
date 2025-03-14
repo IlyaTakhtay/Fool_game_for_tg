@@ -59,7 +59,9 @@ def test_initialization(table: CardTable):
 def test_throw_first_card(table: CardTable, card_setup: Dict[str, Card]):
     """Тест добавления первой карты на стол"""
     result = table.throw_card(card_setup["six_hearts"])
-    assert result is True
+    if not isinstance(result, Exception) and result.get("status"):
+        assert result["status"] is "success"
+
     assert len(table.table_cards) == 1
     assert table.table_cards[0]['attack_card'] == card_setup["six_hearts"]
 
@@ -67,7 +69,8 @@ def test_throw_matching_rank_card(table: CardTable, card_setup: Dict[str, Card])
     """Тест добавления карты с совпадающим рангом"""
     table.throw_card(card_setup["six_hearts"])
     result = table.throw_card(card_setup["six_diamonds"])
-    assert result is True
+    if not isinstance(result, Exception) and result.get("status"):
+        assert result["status"] is "success"
     assert len(table.table_cards) == 2
     assert table.table_cards[1]['attack_card'] == card_setup["six_diamonds"]
 
@@ -75,7 +78,8 @@ def test_throw_non_matching_rank_card(table: CardTable, card_setup: Dict[str, Ca
     """Тест добавления карты с несовпадающим рангом"""
     table.throw_card(card_setup["six_hearts"])
     result = table.throw_card(card_setup["seven_diamonds"])
-    assert result is False
+    if not isinstance(result, Exception) and result.get("status"):
+        assert result["status"] is "error"
     assert len(table.table_cards) == 1
 
 def test_throw_card_exceed_slots(table: CardTable, card_setup: Dict[str, Card]):

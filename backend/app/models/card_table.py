@@ -36,7 +36,7 @@ class CardTable:
     def clear_table(self) -> None:
         self.table_cards.clear()
 
-    def throw_card(self, card: Card) -> bool|Exception:
+    def throw_card(self, card: Card) -> Dict|Exception:
         """добавляет карту на стол"""
         all_cards = self._get_attack_cards() + self._get_defend_cards()
         if card in all_cards:
@@ -45,8 +45,10 @@ class CardTable:
             or len(self.table_cards) == 0):
             if self.slots > len(self.table_cards):
                 self.table_cards.append({"attack_card": card})
-                return True
-        return False
+                return {"status": "success", "message": "success"}
+            else:
+                {"status": "failed", "message": "no free slots"}
+        return {"status": "failed", "message": "wrong rank"}
     
     def cover_card(self, card: Card, cover_card: Card) -> bool|ValueError:
         """Бьет карту на столе"""    

@@ -1,11 +1,18 @@
+from __future__ import annotations
 from typing import Dict, List, Any, Optional
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.app.models.game import FoolGame
 
-from backend.app.utils.game_interface import GameState, Game
+from backend.app.utils.game_interface import GameState
+
 from backend.app.models.player import Player, PlayerStatus
 from backend.app.contracts.game_contract import PlayerInput, PlayerAction, ActionResult, StateResponse
 class LobbyState(GameState):
     """Состояние ожидания игроков перед началом игры"""
-    
+    def __init__(self, game: FoolGame) -> None:
+        self.game: FoolGame = game
+ 
     def enter(self) -> Dict[str, Any]:
         """
         Инициализирует состояние лобби
@@ -232,7 +239,3 @@ class LobbyState(GameState):
             first_attacker_id = self.game.players[0].id
             
         return first_attacker_id
-
-class DrawingCardsState(GameState):
-    pass
-

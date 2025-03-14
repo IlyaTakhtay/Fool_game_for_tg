@@ -1,0 +1,2 @@
+class OnlyThrowState:
+    pass

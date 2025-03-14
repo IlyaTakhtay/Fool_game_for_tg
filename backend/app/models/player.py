@@ -9,6 +9,7 @@ class PlayerStatus(Enum): #TODO: хз че по статусам
     NOT_READY = auto()
     READY = auto()
     EMPTY = auto()
+    VICTORY = auto()
 
 
 class Player:
