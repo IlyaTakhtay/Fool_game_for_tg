@@ -10,7 +10,7 @@ class PlayerAction(Enum):
     JOIN = auto()
     ATTACK = auto()
     DEFEND = auto()
-    TAKE = auto()
+    COLLECT = auto()
     PASS = auto()
     QUIT = auto()
 
@@ -43,6 +43,7 @@ class ActionResult(Enum):
     CARD_REQUIRED = auto()  # Когда действие требует карту, но она не предоставлена
     CANNOT_BEAT = auto()    # Когда карта не может побить атакующую карту
     WRONG_CARD = auto()     # Когда карта не соответствует правилам подкидывания
+    TABLE_FULL = auto()     # Когда на столе нет места для карты
 
 # Структура для результата обработки ввода
 @dataclass
