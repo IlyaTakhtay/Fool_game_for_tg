@@ -2,7 +2,7 @@ from enum import Enum, auto
 from typing import Set
 # Here is Pydantic models
 class PlayerStatus(Enum): #TODO: хз че по статусам
-    JOIN = auto() #TODO че такое auto в Enum
+    JOIN = auto()
     DISCONNECT = auto()
     READY = auto()
     NOT_READY = auto()

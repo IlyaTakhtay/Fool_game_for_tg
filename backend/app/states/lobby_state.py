@@ -130,18 +130,21 @@ class LobbyState(GameState):
                 )
             
             # Добавляем нового игрока
-            new_player = Player(player_input.player_id, f"Player {player_input.player_id}")
+            new_player = Player(player_input.player_id, f"Player {player_input.player_id}") #TODO: вытаскивать потом из бд
             self.game.players.append(new_player)
             
             # Проверяем, можно ли начать игру (все игроки присоединились и готовы)
             if len(self.game.players) == self.game.players_limit:
-                if not self.update(player_input):
+                switch_state=self.update(player_input)
+                if not switch_state:
                     return StateResponse(
                         ActionResult.SUCCESS,
                         f"Игрок {player_input.player_id} готов. Ожидание готовности всех игроков.",
                         None,
                         {"players_count": len(self.game.players)}
                     )
+                else:
+                    return switch_state
             
             return StateResponse(
                 ActionResult.SUCCESS,
@@ -166,8 +169,8 @@ class LobbyState(GameState):
         Returns:
             Optional[str]: Имя следующего состояния или None
         """
-        # Автоматический переход в состояние атаки, если есть хотя бы 2 игрока и прошло некоторое время
-        if all(pl.status == PlayerStatus.READY for pl in self.game.players):
+        # Автоматический переход в состояние атаки если все игроки готовы и 
+        if all(pl.status == PlayerStatus.READY for pl in self.game.players) and len(self.game.players) == self.game.players_limit:
             return StateResponse(
                             ActionResult.SUCCESS,
                             f"Игрок {player_input.player_id} присоединился. Все игроки готовы. Начинаем игру!",

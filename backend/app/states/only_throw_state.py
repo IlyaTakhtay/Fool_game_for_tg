@@ -1,2 +1,0 @@
-class OnlyThrowState:
-    pass

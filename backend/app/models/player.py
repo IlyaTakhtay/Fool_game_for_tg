@@ -5,17 +5,17 @@ from enum import Enum, auto
 from backend.app.models.card import TrumpCard, Card, Suit, Rank #TODO: fix path
 
 
-class PlayerStatus(Enum): #TODO: хз че по статусам
+class PlayerStatus(Enum): #TODO: check statuses
+    LEAVED = auto()
     NOT_READY = auto()
     READY = auto()
-    EMPTY = auto()
     VICTORY = auto()
 
 
 class Player:
     """Базовый класс для игрока"""
-    def __init__(self,  id: str, name: str) -> None:
-        self.id: str = id #get somewhere index
+    def __init__(self,  id_: str, name: str) -> None:
+        self.id: str = id_ #get somewhere uuid
         self._status: PlayerStatus = PlayerStatus.NOT_READY
         self.name: str = name
         self._hand: Set[Card] = set()

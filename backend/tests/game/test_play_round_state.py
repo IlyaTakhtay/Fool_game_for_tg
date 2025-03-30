@@ -1,32 +1,57 @@
 # попросить написать чатгпт тесты сюда и на этом все на сегодняшний день
+import random
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
 
 from backend.app.contracts.game_contract import PlayerInput, PlayerAction, ActionResult, StateResponse
 from backend.app.models.player import Player, PlayerStatus
 from backend.app.models.card import Card, Suit, Rank
-from backend.app.states.fight_state import FightState
-
+from backend.app.states.play_round_state import PlayRoundState
 
 @pytest.fixture
 def game_mock():
-    """Фикстура для создания мока игры"""
-    game = Mock()
-    game.players = [
-        Mock(id="1", cards=[Card(Suit.HEARTS, Rank.ACE), Card(Suit.DIAMONDS, Rank.KING)]),
-        Mock(id="2", cards=[Card(Suit.CLUBS, Rank.QUEEN), Card(Suit.SPADES, Rank.JACK)])
-    ]
+    """Фикстура игры с MagicMock для поддержки магических методов"""
+    game = MagicMock()
+
+    # Создаем реалистичных игроков
+    player1 = MagicMock(spec=Player)  # Добавляем spec для валидации методов
+    player1.id = "1"
+    player1.cards = {
+        Card(Suit.HEARTS, Rank.ACE),
+        Card(Suit.DIAMONDS, Rank.KING)
+    }
+    player1.get_cards.return_value = player1.cards  # Явный возврат множества
+    player1.remove_card = MagicMock()  # Явно инициализируем метод
+
+    player2 = MagicMock(spec=Player)
+    player2.id = "2"
+    player2.cards = {
+        Card(Suit.CLUBS, Rank.QUEEN),
+        Card(Suit.SPADES, Rank.JACK)
+    }
+    player2.get_cards.return_value = player2.cards
+    player2.remove_card = MagicMock()
+
+    # Настраиваем игровой стол
+    game_table = MagicMock()
+    game_table.table_cards = []  # Реальный список, а не Mock
+    game_table.throw_card.return_value = {"status": "success"}
+
+    # Собираем объект игры
+    game.players = [player1, player2]
     game.current_attacker_id = "1"
     game.current_defender_id = "2"
-    game.game_table = Mock()
-    game.deck = Mock()
+    game.game_table = game_table
+    game.deck = MagicMock()
+
     return game
+
 
 
 @pytest.fixture
 def fight_state(game_mock):
     """Фикстура для создания состояния боя"""
-    return FightState(game_mock)
+    return PlayRoundState(game_mock)
 
 
 def test_enter(fight_state, game_mock):
@@ -103,17 +128,37 @@ def test_handle_input_attack_success(fight_state, game_mock):
     game_mock.players[0].remove_card.assert_called_once_with(attack_card)
 
 
-def test_handle_input_attack_table_full(fight_state, game_mock):
-    """Тест атаки при полном столе"""
+def test_handle_input_attack_table_full_by_table_limit(fight_state, game_mock):
+    """Тест атаки при полном """
     attack_card = Card(Suit.HEARTS, Rank.ACE)
     player_input = PlayerInput(player_id="1", action=PlayerAction.ATTACK, attack_card=attack_card)
     
-    game_mock.game_table.throw_card.return_value = {"status": "failed", "message": "no free slots"}
+    game_mock.game_table.slots = 6
+    game_mock.game_table.table_cards = [{"attack_card":Card(random.choice(list(Suit)), random.choice(list(Rank)))} for _ in range(2)]
     
     response = fight_state.handle_input(player_input)
     
     assert response.result == ActionResult.TABLE_FULL
 
+def test_handle_input_attack_table_full_by_player_hand(fight_state, game_mock):
+    """Тест атаки при полном """
+    attack_card = Card(Suit.HEARTS, Rank.ACE)
+    player_input = PlayerInput(player_id="1", action=PlayerAction.ATTACK, attack_card=attack_card)
+    
+    game_mock.game_table.table_cards = game_mock.game_table.table_cards = [
+        {"attack_card": Card(Suit.DIAMONDS, Rank.KING)}
+    ]
+    game_mock.game_table.slots = 1
+    
+    game_mock.game_table.throw_card.return_value = {
+        "status": "failed", 
+        "message": "no free slots"
+    }
+    response = fight_state.handle_input(player_input)
+    
+    game_mock.game_table.throw_card.assert_called_once_with(attack_card)
+
+    assert response.result == ActionResult.TABLE_FULL
 
 def test_handle_input_attack_wrong_rank(fight_state, game_mock):
     """Тест атаки с неправильным рангом"""

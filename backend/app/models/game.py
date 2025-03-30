@@ -18,11 +18,25 @@ class FoolGame(Game):
         self.players: List[Player] = list()
         self.deck: Deck = Deck()
         self.game_table: CardTable = CardTable()
-        self.state_history = list()
-        self.current_attacker_id = None
-        self.current_defender_id = None
+        self.state_history: list[str] = list()
+        self.current_attacker_id: str = None
+        self.current_defender_id: str = None
         self._current_state: GameState = LobbyState(self)
-        
+        self.round_defender_status: PlayerAction | None = None
+    
+    @property
+    def current_attacker_idx(self) -> int | None:
+        return self.get_player_by_id(self.current_attacker_id)
+    
+    @property
+    def current_defender_idx(self) -> Player | None:
+        return self.get_player_by_id(self.current_defender_id)
+
+    def get_player_by_id(self, player_id: str) -> Player | None:
+        if player_id is None:
+            return next((idx for idx, player in enumerate(self.players) if player.id == player_id), None)
+        return None
+
     def _set_state(self, new_state: GameState) -> StateTransition:
         """
         Изменяет текущее состояние игры
@@ -31,7 +45,7 @@ class FoolGame(Game):
             new_state: Новое состояние
             
         Returns:
-            Dict[str, Any]: Информация о новом состоянии
+            StateTransition: Информация о новом состоянии
         """
         exit_info = {}
         previous_state = None
@@ -45,7 +59,7 @@ class FoolGame(Game):
             self._current_state = new_state
             enter_info = self._current_state.enter()
         except:
-            raise Exception("Ошибка при переключении состояния")
+            raise Exception(f"Ошибка при переключении состояния в игре {self.game_id}")
         # Если предыдущее состояние существует, сохраняем информацию о его выходе
         # Возвращаем информацию об изменении состояния
         return StateTransition(
@@ -75,11 +89,11 @@ class FoolGame(Game):
         
         response = self._current_state.handle_input(player_input)
         # Если нужно сменить состояние
-        if response.next_state and response.next_state != self._current_state.__class____name__:
+        if response.next_state and response.next_state != self._current_state.__class.__name__:
         # Находим класс состояния по имени и создаем экземпляр
             for state_class in GameState.__subclasses__():
                 if state_class.__name__ == response.next_state:
-                    transition = self._set_state(state_class(self))
+                    transition: StateTransition = self._set_state(state_class(self))
                     return transition
             return StateResponse(
                 ActionResult.INVALID_ACTION,
@@ -109,4 +123,3 @@ class FoolGame(Game):
             "defender_id": self.current_defender_id,
             "allowed_actions": self._current_state.get_allowed_actions() if self._current_state else {}
         }
-
