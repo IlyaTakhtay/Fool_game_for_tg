@@ -29,25 +29,25 @@ def card_setup():
 @pytest.fixture
 def player():
     """Создание экземпляра игрока для каждого теста"""
-    return Player(name="George", id=uuid.uuid4().hex)
+    return Player(name="George", id_=str(uuid.uuid4().int))
 
 def test_initialization():
     """Тест инициализации игрока"""
-    player_id = uuid.uuid4().hex
-    player = Player(name="George", id=player_id)
+    player_id = str(uuid.uuid4())
+    player = Player(name="George", id_=player_id)
     assert player.name == "George"
-    assert player.id == player_id
+    assert player.id_ == player_id
     assert len(player._hand) == 0
 
 # def test_initialization_empty_name():
 #     """Тест создания игрока с пустым именем"""
 #     with pytest.raises(ValueError):
-#         Player(name="", id=uuid.uuid4().hex)
+#         Player(name="", id_=uuid.uuid4().hex)
 
 # def test_initialization_empty_id():
 #     """Тест создания игрока с пустым ID"""
 #     with pytest.raises(ValueError):
-#         Player(name="George", id="")
+#         Player(name="George", id_="")
 
 def test_add_card_to_player(player: Player, card_setup):
     """Тест добавления карты игроку"""

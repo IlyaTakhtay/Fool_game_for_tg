@@ -48,67 +48,72 @@ class DealState(GameState):
         # Определение новых ролей если игра продолжается
         self._update_roles()
     
+    def get_allowed_actions(self) -> None:
+        """
+        Заглушка имплементации
+        """
+        return None
+    
     def _check_win_condition(self) -> bool:
         """Проверка условий победы. Возвращает True если игра завершена."""
         # Установка окончания участия для игроков без карт и с пустой колодой"""
-        # TODO: тут чутка дублирование получается
-        victors = [p for p in self.game.players if not p.get_cards() and len(self.game.deck)]
-        if victors:
-            for player in victors:
-                player.status = PlayerStatus.VICTORY
-
-        # Проверка на последнего с картами
-        active_players = [player.status != PlayerStatus.VICTORY for player in self.game.players]
-        if len(active_players) <= 1:
-            True
-        else: 
-            return False
+        if len(self.game.deck) == 0:
+            victors = [p for p in self.game.players if len(p.get_cards()) == 0]
+            if victors:
+                for player in victors:
+                    player.status = PlayerStatus.VICTORY
+            # Проверка на последнего с картами
+            active_players = [player for player in self.game.players if player.status != PlayerStatus.VICTORY]
+            if len(active_players) <= 1:
+                return True
+        return False
 
     def _update_roles(self) -> None:
-        active_players = [p for p in self.game.players 
-                        if p.status != PlayerStatus.VICTORY]
+        # Получаем активных игроков (без победителей)
+        active_players = [p for p in self.game.players if p.status != PlayerStatus.VICTORY]
         
         if not active_players:
+            self.game.current_attacker_id = None
+            self.game.current_defender_id = None
             return
         
+        # Функция для поиска следующего активного игрока
+        def find_next_active(start_idx: int) -> int:
+            for i in range(len(self.game.players)):
+                idx = (start_idx + i) % len(self.game.players)
+                if self.game.players[idx].status != PlayerStatus.VICTORY:
+                    return idx
+            return -1  # На случай, если все игроки победили
+        
+        # Определяем нового атакующего
         if self.game.round_defender_status == PlayerAction.DEFEND:
-            # Новый атакующий - текущий защитник
-            new_attacker_idx = self.game.current_defender_idx
+            start_idx = self.game.current_defender_idx or 0
         else:
-            # Новый атакующий - следующий после защитника (в оригинальном списке)
-            new_attacker_idx = (self.game.current_defender_idx + 1) % len(self.game.players)
+            start_idx = (self.game.current_defender_idx + 1) % len(self.game.players)
         
-        # Ищем следующего активного атакующего
-        for _ in range(len(self.game.players)):
-            candidate = self.game.players[new_attacker_idx]
-            if candidate.status != PlayerStatus.VICTORY:
-                self.game.current_attacker_id = candidate.id
-                break
-            new_attacker_idx = (new_attacker_idx + 1) % len(self.game.players)
+        new_attacker_idx = find_next_active(start_idx)
         
-        # Ищем следующего активного защитника
-        defender_idx = (new_attacker_idx + 1) % len(self.game.players)
-        for _ in range(len(self.game.players)):
-            candidate = self.game.players[defender_idx]
-            if candidate.status != PlayerStatus.VICTORY:
-                self.game.current_defender_id = candidate.id
-                break
-            defender_idx = (defender_idx + 1) % len(self.game.players)
-
-
+        # Определяем нового защитника (следующий после атакующего)
+        new_defender_idx = find_next_active((new_attacker_idx + 1) % len(self.game.players))
+        
+        # Обновляем ID текущих игроков
+        if new_attacker_idx != -1:
+            self.game.current_attacker_id = self.game.players[new_attacker_idx].id_
+        
+        if new_defender_idx != -1:
+            self.game.current_defender_id = self.game.players[new_defender_idx].id_
 
 
     def _deal_cards(self) -> None:
         """Логика раздачи карт"""
         # Порядок раздачи: атакующий -> другие игроки -> защищающийся
         players_order = (
-            self.game.players[self.game.attacker_idx:] 
-            + self.game.players[:self.game.attacker_idx]
+            self.game.players[self.game.current_attacker_idx:] 
+            + self.game.players[:self.game.current_attacker_idx]
         )
         
         # Раздача всем кроме защищающегося
-        defender = next(p for p in players_order 
-                       if p.id == self.game.current_defender_id)
+        defender = self.game.players[self.game.current_defender_idx]
         
         for player in players_order:
             if player == defender:
@@ -120,7 +125,7 @@ class DealState(GameState):
 
     def _fill_hand(self, player: Player) -> None:
         """Добирает карты игроку до 6 из колоды"""
-        while len(player.cards) < 6 and len(self.game.deck) > 0:
+        while len(player.get_cards()) < 6 and len(self.game.deck) > 0:
             card = self.game.deck.draw()
             if card is not None:
                 player.add_card(card)

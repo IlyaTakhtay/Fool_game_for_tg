@@ -56,14 +56,14 @@ class GameState(ABC):
         """
         pass
 
-    @abstractmethod
-    def update(self) -> Optional[StateResponse]:
-        """
-        Проверяет условия для перехода в другое состояние и обнолвяет состояние
+    # @abstractmethod
+    # def update(self) -> Optional[StateResponse]:
+    #     """
+    #     Проверяет условия для перехода в другое состояние и обнолвяет состояние
         
-        Returns:
-           StateResponse: Результат обработки ввода с информацией о следующем состоянии
-        """
+    #     Returns:
+    #        StateResponse: Результат обработки ввода с информацией о следующем состоянии
+    #     """
 
 
     def get_state_info(self) -> Dict[str, Any]:

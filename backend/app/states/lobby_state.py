@@ -21,8 +21,8 @@ class LobbyState(GameState):
             Dict[str, Any]: Информация о входе в состояние лобби
         """
         # Сбрасываем игровые переменные на случай, если это новая игра
-        self.game.deck.generate_deck()
         self.game.game_table.clear_table()
+        self.game.deck.generate_deck()
         self.game.current_attacker_id = None
         self.game.current_defender_id = None
         
@@ -43,12 +43,13 @@ class LobbyState(GameState):
         
         # Раздача карт игрокам
         for player in self.game.players:
-            player.cards = self.game.deck.draw_cards(6)
+            for _ in range(6):
+                player.add_card(self.game.deck.draw())
         
         # Определение первого атакующего (у кого наименьший козырь)
         self.game.current_attacker_id = self._determine_first_attacker()
-        
         self.game.current_defender_id = self._determine_defender()
+        self._clear_statuses()
         return {
             "message": "Игра начинается!",
             "players_count": len(self.game.players),
@@ -70,7 +71,7 @@ class LobbyState(GameState):
         # Обработка выхода игрока
         if player_input.action == PlayerAction.QUIT:
             # Удаляем игрока из списка
-            self.game.players = [p for p in self.game.players if p.id != player_input.player_id]
+            self.game.players = [p for p in self.game.players if p.id_ != player_input.player_id]
             return StateResponse(
                 ActionResult.SUCCESS,
                 f"Игрок {player_input.player_id} покинул игру",
@@ -81,7 +82,7 @@ class LobbyState(GameState):
         # Обработка установки статуса "готов"
         if player_input.action == PlayerAction.READY:
             # Находим игрока и меняем его статус
-            player = next((p for p in self.game.players if p.id == player_input.player_id), None)
+            player = next((p for p in self.game.players if p.id_ == player_input.player_id), None)
             if player:
                 player.status = PlayerStatus.READY
                 
@@ -91,7 +92,7 @@ class LobbyState(GameState):
                     return StateResponse(
                         ActionResult.SUCCESS,
                         "Все игроки готовы. Начинаем игру!",
-                        "AttackState",  # Переход к состоянию атаки
+                        "PlayRoundWithoutThrowState",  # Переход к состоянию атаки
                         {"players_count": len(self.game.players)}
                     )
                 
@@ -112,7 +113,7 @@ class LobbyState(GameState):
         # Обработка присоединения к игре
         if player_input.action == PlayerAction.JOIN:
             # Проверяем, есть ли уже этот игрок в списке
-            if any(p.id == player_input.player_id for p in self.game.players):
+            if any(p.id_ == player_input.player_id for p in self.game.players):
                 return StateResponse(
                     ActionResult.INVALID_ACTION,
                     "Вы уже присоединились к игре",
@@ -174,7 +175,7 @@ class LobbyState(GameState):
             return StateResponse(
                             ActionResult.SUCCESS,
                             f"Игрок {player_input.player_id} присоединился. Все игроки готовы. Начинаем игру!",
-                            "AttackState",
+                            "PlayRoundWithoutThrowState",
                             {"players_count": len(self.game.players)}
                     )
         return None
@@ -196,7 +197,7 @@ class LobbyState(GameState):
             if player.status != PlayerStatus.READY:
                 actions.append(PlayerAction.READY)
                 
-            allowed_actions[player.id] = actions
+            allowed_actions[player.id_] = actions
         return allowed_actions
 
     def _determine_defender(self) -> str:
@@ -207,7 +208,7 @@ class LobbyState(GameState):
             str: ID защищающегося игрока
         """
         try:
-            attacker_index = [p.id for p in self.game.players].index(self.game.current_attacker_id)
+            attacker_index = [p.id_ for p in self.game.players].index(self.game.current_attacker_id)
         except ValueError:
             attacker_index = 0
         
@@ -215,7 +216,7 @@ class LobbyState(GameState):
             raise ValueError("Нет игроков для определения защищающегося")
             
         defender_index = (attacker_index + 1) % len(self.game.players)
-        return self.game.players[defender_index].id
+        return self.game.players[defender_index].id_
     
     def _determine_first_attacker(self) -> int:
         """
@@ -230,15 +231,19 @@ class LobbyState(GameState):
         
         # Ищем игрока с наименьшим козырем
         for player in self.game.players:
-            trump_cards = [card for card in player.cards if card.suit == trump_suit]
+            trump_cards = [card for card in player.get_cards() if card.suit == trump_suit]
             if trump_cards:
                 min_player_trump = min(trump_cards, key=lambda card: card.rank.value)
                 if min_trump_rank is None or min_player_trump.rank.value < min_trump_rank:
                     min_trump_rank = min_player_trump.rank.value
-                    first_attacker_id = player.id
+                    first_attacker_id = player.id_
         
         # Если ни у кого нет козырей, выбираем первого игрока
         if first_attacker_id is None and self.game.players:
-            first_attacker_id = self.game.players[0].id
+            first_attacker_id = self.game.players[0].id_
             
         return first_attacker_id
+    
+    def _clear_statuses(self) -> None:
+        for player in self.game.players:
+            player.status = PlayerStatus.NOT_READY

@@ -5,7 +5,7 @@ from backend.app.models.card import Card, TrumpCard
 class CardTable:
     def __init__(self) -> None:
         self.slots = 5
-        self.table_cards: List[Dict] = []
+        self.table_cards: List[Dict] = [] #TODO: make table_cards only getter without setter
 
     def _get_attack_cards(self) -> List[Card]:
         attack_cards = []
@@ -44,8 +44,8 @@ class CardTable:
         if (any(card.rank == table_card.rank for table_card in all_cards) 
             or len(self.table_cards) == 0):
             if self.slots > len(self.table_cards):
-                self.table_cards.append({"attack_card": card})
-                return {"status": "success", "message": "success"}
+                self.table_cards.append({"attack_card": card, "defend_card": None})
+                return {"status": "sucsess", "message": "sucsess"}
             else:
                 {"status": "failed", "message": "no free slots"}
         return {"status": "failed", "message": "wrong rank"}

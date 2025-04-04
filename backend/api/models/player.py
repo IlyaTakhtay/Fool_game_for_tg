@@ -9,8 +9,8 @@ class PlayerStatus(Enum): #TODO: хз че по статусам
 
 class Player:
     """Базовый класс для игрока"""
-    def __init__(self,  id: str, name: str) -> None:
-        self.id: str = id #get somewhere index
+    def __init__(self,  id_: str, name: str) -> None:
+        self.id_: str = id_ #get somewhere index
         # имя узнаем из бд ?
         self.staus: PlayerStatus = PlayerStatus.NOT_READY
         self._hand: Set[Card] = set()

@@ -60,7 +60,7 @@ def test_throw_first_card(table: CardTable, card_setup: Dict[str, Card]):
     """Тест добавления первой карты на стол"""
     result = table.throw_card(card_setup["six_hearts"])
     if not isinstance(result, Exception) and result.get("status"):
-        assert result["status"] is "success"
+        assert result["status"] is "sucsess"
 
     assert len(table.table_cards) == 1
     assert table.table_cards[0]['attack_card'] == card_setup["six_hearts"]
@@ -70,7 +70,7 @@ def test_throw_matching_rank_card(table: CardTable, card_setup: Dict[str, Card])
     table.throw_card(card_setup["six_hearts"])
     result = table.throw_card(card_setup["six_diamonds"])
     if not isinstance(result, Exception) and result.get("status"):
-        assert result["status"] is "success"
+        assert result["status"] is "sucsess"
     assert len(table.table_cards) == 2
     assert table.table_cards[1]['attack_card'] == card_setup["six_diamonds"]
 
@@ -79,7 +79,7 @@ def test_throw_non_matching_rank_card(table: CardTable, card_setup: Dict[str, Ca
     table.throw_card(card_setup["six_hearts"])
     result = table.throw_card(card_setup["seven_diamonds"])
     if not isinstance(result, Exception) and result.get("status"):
-        assert result["status"] is "error"
+        assert result["status"] is "failed"
     assert len(table.table_cards) == 1
 
 def test_throw_card_exceed_slots(table: CardTable, card_setup: Dict[str, Card]):
@@ -88,7 +88,7 @@ def test_throw_card_exceed_slots(table: CardTable, card_setup: Dict[str, Card]):
     table.throw_card(card_setup["six_hearts"])
     table.throw_card(card_setup["six_diamonds"])
     result = table.throw_card(card_setup["six_spades"])  # Пытаемся добавить третью карту
-    assert result is False
+    assert result["status"] == "failed"
     assert len(table.table_cards) == 2
 
 def test_cover_card_success(table: CardTable, card_setup: Dict[str, Card]):
@@ -152,7 +152,7 @@ def test_clear_table(table: CardTable, card_setup: Dict[str, Card]):
 def test_throw_trump_card(table: CardTable, card_setup: Dict[str, Card]):
     """Тест добавления козырной карты на стол"""
     result = table.throw_card(card_setup["trump_ace_diamonds"])
-    assert result is True
+    assert result["status"] == "sucsess"
     assert len(table.table_cards) == 1
     assert table.table_cards[0]['attack_card'] == card_setup["trump_ace_diamonds"]
 

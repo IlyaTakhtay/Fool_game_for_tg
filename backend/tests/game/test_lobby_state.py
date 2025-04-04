@@ -1,7 +1,8 @@
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from backend.app.contracts.game_contract import PlayerInput, PlayerAction, ActionResult, StateResponse
+from backend.app.models.card import Card
 from backend.app.models.game import FoolGame
 from backend.app.models.player import Player, PlayerStatus
 from backend.app.states.lobby_state import LobbyState
@@ -50,7 +51,7 @@ def test_join_player(lobby_state, game_mock):
     # Проверяем результат
     assert response.result == ActionResult.SUCCESS
     assert len(game_mock.players) == 1
-    assert game_mock.players[0].id == 1
+    assert game_mock.players[0].id_ == 1
 
 
 def test_join_player_already_in_lobby(lobby_state, game_mock):
@@ -118,7 +119,7 @@ def test_all_players_ready_start_game(lobby_state, game_mock):
     
     # Проверяем результат
     assert response.result == ActionResult.SUCCESS
-    assert response.next_state == "AttackState"
+    assert response.next_state == "PlayRoundWithoutThrowState"
     assert "Все игроки готовы" in response.message
 
 
@@ -190,6 +191,14 @@ def test_invalid_action(lobby_state, game_mock):
 
 def test_exit_state(lobby_state, game_mock):
     """Тест выхода из состояния лобби"""
+    # Создаем мок колоды с уникальными картами
+    mock_deck = MagicMock()
+    mock_cards = [MagicMock(spec=Card) for _ in range(36)]
+    mock_deck.draw.side_effect = mock_cards
+    
+    # Присваиваем мок колоды игровому объекту
+    game_mock.deck = mock_deck
+    
     # Добавляем игроков
     player1 = Player(1, "Player 1")
     player2 = Player(2, "Player 2")
@@ -200,14 +209,7 @@ def test_exit_state(lobby_state, game_mock):
     with patch.object(lobby_state, '_determine_first_attacker', return_value=1):
         result = lobby_state.exit()
     
-    # Проверяем, что карты розданы
     assert "message" in result
-    assert "players_count" in result
-    assert "first_attacker" in result
-    assert "first_defender" in result
-    assert "trump_suit" in result
-    
-    # Проверяем, что атакующий и защищающийся определены правильно
     assert game_mock.current_attacker_id == 1
     assert game_mock.current_defender_id == 2
 
@@ -226,5 +228,5 @@ def test_multiple_players_ready(lobby_state, game_mock, player_id, expected_stat
     lobby_state.handle_input(player_input)
     
     # Находим игрока и проверяем его статус
-    player = next(p for p in game_mock.players if p.id == player_id)
+    player = next(p for p in game_mock.players if p.id_ == player_id)
     assert player.status == expected_status

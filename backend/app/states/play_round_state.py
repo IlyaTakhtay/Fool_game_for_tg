@@ -1,12 +1,16 @@
 from __future__ import annotations
+import logging
 from typing import Dict, List, Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.app.models.game import FoolGame
 
+from backend.app.utils.logger import setup_logger
 from backend.app.models.card import Card
 from backend.app.utils.game_interface import GameState
 from backend.app.models.player import Player, PlayerStatus
 from backend.app.contracts.game_contract import PlayerInput, PlayerAction, ActionResult, StateResponse, StateTransition
+
+logger = setup_logger(__name__, log_file="logs/debug.log", level=logging.DEBUG)
 
 class ExtraThrowActionMixin:
     def _extra_throw_action (self, player_input) -> ActionResult:
@@ -86,10 +90,12 @@ class PlayRoundWithoutThrowState(GameState):
         # Отдаем в руку карты со стола игроку, который не отбился
         if self.game.round_defender_status == PlayerAction.COLLECT:
             for pair in self.game.game_table.table_cards:
-                for card in pair.items:
-                    self.game.players[self.game.defender_idx].cards.append(card)
-                    
-        self.game.game_table.clear_table()
+                for card in pair.items():
+                    pl: Player = self.game.players[self.game.current_defender_idx]
+                    if pl:
+                        pl.add_card(card)
+        logging.debug(f"current defender status is{self.game.round_defender_status}")
+        # self.game.game_table.clear_table()
         return {
             "message": "Драка завершена.",
             "table_cards": [str(card) for card in self.game.game_table.table_cards]
@@ -113,6 +119,7 @@ class PlayRoundWithoutThrowState(GameState):
         
         # Проверяем, что ход принадлежит атакующему или защищающемуся игроку
         if player_input.player_id != self.game.current_attacker_id and player_input.player_id != self.game.current_defender_id:
+            logger
             return StateResponse(
                 ActionResult.NOT_YOUR_TURN,
                 "Сейчас не ваш ход."
@@ -153,7 +160,7 @@ class PlayRoundWithoutThrowState(GameState):
             if not self._is_all_cards_defended() or self.game.round_defender_status == PlayerAction.COLLECT:
                 return StateResponse(
                     ActionResult.INVALID_ACTION,
-                    "Нельзя пасовать, пока защищающийся не отбил все карты или не пасанул сам",
+                    "Нельзя пасовать, пока защищающийся не отбил все карт ыили не пасанул сам",
                 )
             else:
                 return self._extra_throw_action(player_input=player_input)
@@ -169,6 +176,7 @@ class PlayRoundWithoutThrowState(GameState):
                 )
             if defender.status != PlayerStatus.READY:
                 defender.status = PlayerStatus.READY
+                self.game.round_defender_status = PlayerAction.COLLECT
                 return StateResponse(
                     ActionResult.SUCCESS,
                     f"Игрок {defender.name} не может отбить и забирает карты."
@@ -182,7 +190,7 @@ class PlayRoundWithoutThrowState(GameState):
         # Если действие не распознано
         return StateResponse(
             ActionResult.INVALID_ACTION,
-            "Недопустимое действие в состоянии атаки."
+            "Действие не распознано."
         )
 
 
@@ -204,10 +212,10 @@ class PlayRoundWithoutThrowState(GameState):
             )
         
         try:
-            attacker = self.game.players[self.game.current_attacker_idx]
+            attacker: Player = self.game.players[self.game.current_attacker_idx]
         except (TypeError, IndexError):
             attacker = None
-        if not attacker or player_input.attack_card not in attacker.cards:
+        if not attacker or player_input.attack_card not in attacker.get_cards():
             return StateResponse(
                 ActionResult.INVALID_CARD,
                 "У вас нет такой карты."
@@ -263,14 +271,14 @@ class PlayRoundWithoutThrowState(GameState):
                 "Необходимо выбрать карту для защиты."
             )
         try:
-            defender = self.game.players[self.game.current_attacker_idx]
+            defender: Player = self.game.players[self.game.current_defender_idx]
         except (TypeError, IndexError):
             return StateResponse(
                ActionResult.INTERNAL_ERROR,
                "Не найден игрок для защиты"
             )
         # Проверяем, что карта есть у игрока
-        if not defender or player_input.defend_card not in defender.cards:
+        if not defender or player_input.defend_card not in defender.get_cards():
             return StateResponse(
                 ActionResult.INVALID_CARD,
                 "У вас нет такой карты."
@@ -291,6 +299,8 @@ class PlayRoundWithoutThrowState(GameState):
                 "Ошибка с картой на столе",
             )
 
+        defender.remove_card(player_input.defend_card)
+
         return StateResponse(
             ActionResult.SUCCESS,
             f"Игрок {player_input.player_id} защищается картой {player_input.defend_card}.",
@@ -310,7 +320,9 @@ class PlayRoundWithoutThrowState(GameState):
         Returns:
             bool: True, если может отбить ещё, иначе False
         """
-        if len(defender_cards) <= len([card["attack"] for card in self.game.game_table.table_cards if card["defend"] is None]):
+        if len(self.game.game_table.table_cards) == 0:
+            return True
+        elif len(defender_cards) <= len([card["attack_card"] for card in self.game.game_table.table_cards if card["defend_card"] is None]):
             return False
         else:
             return True
@@ -342,6 +354,7 @@ class PlayRoundWithoutThrowState(GameState):
         """
         if not all(card.get("defend_card") for card in self.game.game_table.table_cards):
             return False
+        self.game.round_defender_status = PlayerAction.DEFEND
         return True
     
     def get_allowed_actions(self) -> Dict[int, List[PlayerAction]]:
@@ -363,8 +376,8 @@ class PlayRoundWithoutThrowState(GameState):
         
         # Для остальных игроков только выход
         for player in self.game.players:
-            if player.id != self.game.current_attacker_id and player.id != self.game.current_defender_id:
-                allowed_actions[player.id] = [PlayerAction.QUIT]
+            if player.id_ != self.game.current_attacker_id and player.id_ != self.game.current_defender_id:
+                allowed_actions[player.id_] = [PlayerAction.QUIT]
         
         return allowed_actions
 

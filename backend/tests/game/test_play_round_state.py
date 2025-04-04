@@ -15,7 +15,7 @@ def game_mock():
 
     # Создаем реалистичных игроков
     player1 = MagicMock(spec=Player)  # Добавляем spec для валидации методов
-    player1.id = "1"
+    player1.id_ = "1"
     player1.cards = {
         Card(Suit.HEARTS, Rank.ACE),
         Card(Suit.DIAMONDS, Rank.KING)
@@ -24,7 +24,7 @@ def game_mock():
     player1.remove_card = MagicMock()  # Явно инициализируем метод
 
     player2 = MagicMock(spec=Player)
-    player2.id = "2"
+    player2.id_ = "2"
     player2.cards = {
         Card(Suit.CLUBS, Rank.QUEEN),
         Card(Suit.SPADES, Rank.JACK)
@@ -35,7 +35,7 @@ def game_mock():
     # Настраиваем игровой стол
     game_table = MagicMock()
     game_table.table_cards = []  # Реальный список, а не Mock
-    game_table.throw_card.return_value = {"status": "success"}
+    game_table.throw_card.return_value = {"status": "sucsess"}
 
     # Собираем объект игры
     game.players = [player1, player2]
@@ -119,7 +119,7 @@ def test_handle_input_attack_success(fight_state, game_mock):
     attack_card = Card(Suit.HEARTS, Rank.ACE)
     player_input = PlayerInput(player_id="1", action=PlayerAction.ATTACK, attack_card=attack_card)
     
-    game_mock.game_table.throw_card.return_value = {"status": "success", "message": "success"}
+    game_mock.game_table.throw_card.return_value = {"status": "sucsess", "message": "sucsess"}
     
     response = fight_state.handle_input(player_input)
     
@@ -178,7 +178,7 @@ def test_handle_input_attack_defender_has_few_cards(fight_state, game_mock):
     attack_card = Card(Suit.HEARTS, Rank.ACE)
     player_input = PlayerInput(player_id="1", action=PlayerAction.ATTACK, attack_card=attack_card)
     
-    game_mock.game_table.throw_card.return_value = {"status": "success", "message": "success"}
+    game_mock.game_table.throw_card.return_value = {"status": "sucsess", "message": "sucsess"}
     game_mock.game_table.table_cards = [Card(Suit.CLUBS, Rank.KING), Card(Suit.DIAMONDS, Rank.QUEEN)]
     game_mock.players[1].cards = [Card(Suit.CLUBS, Rank.QUEEN), Card(Suit.SPADES, Rank.JACK)]
     
@@ -344,7 +344,7 @@ def test_deal_cards(fight_state, game_mock):
 def test_get_allowed_actions(fight_state, game_mock):
     """Тест получения разрешенных действий"""
     # Добавляем третьего игрока
-    game_mock.players.append(Mock(id="3", cards=[]))
+    game_mock.players.append(Mock(id_="3", cards=[]))
     
     allowed_actions = fight_state.get_allowed_actions()
     

@@ -56,9 +56,9 @@ def test_init_with_invalid_players_limit():
         FoolGame(game_id="test_game", players_limit=1)
 
 
-def test_set_state(game, mock_state):
+def test_set_state_without_players(game, mock_state):
     """Тест изменения состояния игры"""
-    with pytest.raises(Exception, match="Ошибка при переключении состояния"):
+    with pytest.raises(Exception, match="Нет игроков для определения защищающегося"):
         game._set_state(Mock(spec=GameState))
     assert game._current_state != mock_state
     assert len(game.state_history) == 0

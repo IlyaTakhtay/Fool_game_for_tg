@@ -1,7 +1,7 @@
+from __future__ import annotations
 from backend.app.contracts.game_contract import ActionResult, PlayerAction, PlayerInput, StateResponse
 from backend.app.models.player import PlayerStatus
 from backend.app.utils.game_interface import GameState
-from __future__ import annotations
 from typing import Dict, List, Any, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.app.models.game import FoolGame
@@ -45,6 +45,10 @@ class GameOverState(GameState):
         for player in self.game.players:
             player.status = PlayerStatus.NOT_READY
 
-    def _clear_playerds_cards(self) -> None:
+    def _clear_players_cards(self) -> None:
         for player in self.game.players:
             player.clear_hand()
+
+    def get_allowed_actions(self):
+        return super().get_allowed_actions()
+

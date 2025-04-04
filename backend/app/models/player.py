@@ -15,7 +15,7 @@ class PlayerStatus(Enum): #TODO: check statuses
 class Player:
     """Базовый класс для игрока"""
     def __init__(self,  id_: str, name: str) -> None:
-        self.id: str = id_ #get somewhere uuid
+        self.id_: str = id_ #get somewhere uuid
         self._status: PlayerStatus = PlayerStatus.NOT_READY
         self.name: str = name
         self._hand: Set[Card] = set()
@@ -49,9 +49,3 @@ class Player:
     def clear_hand(self) -> None:
         """Очистить руку"""
         self._hand.clear()
-
-    # def is_hand_full(self, cls) -> bool:
-    #     """Проверить, полная ли рука"""
-    #     if len(self._hand) >= cls.hand_limit:
-    #         return True
-    #     return False
