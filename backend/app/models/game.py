@@ -137,3 +137,7 @@ class FoolGame(Game):
             "defender_id": self.current_defender_id,
             "allowed_actions": self._current_state.get_allowed_actions() if self._current_state else {}
         }
+
+    def is_full(self):
+        return len(self.players) == self.players_limit
+

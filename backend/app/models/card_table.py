@@ -61,5 +61,3 @@ class CardTable:
                 raise ValueError("This card not on table") #todo custom error
         return False
 
-
-    
