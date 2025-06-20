@@ -1,16 +1,6 @@
-from enum import Enum, auto
-from typing import Set
-# Here is Pydantic models
-class PlayerStatus(Enum): #TODO: хз че по статусам
-    JOIN = auto()
-    DISCONNECT = auto()
-    READY = auto()
-    NOT_READY = auto()
+from pydantic import BaseModel
 
-class Player:
-    """Базовый класс для игрока"""
-    def __init__(self,  id_: str, name: str) -> None:
-        self.id_: str = id_ #get somewhere index
-        # имя узнаем из бд ?
-        self.staus: PlayerStatus = PlayerStatus.NOT_READY
-        self._hand: Set[Card] = set()
+# Модель ответа для клиента
+class ResponsePlayer(BaseModel):
+    """Модель ответа для игрока"""
+    player_id: str

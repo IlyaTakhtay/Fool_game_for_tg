@@ -1,0 +1,34 @@
+  /* #TODO: Approve adaptive css */
+  .menu-button {
+    font-size: clamp(12px, 1vw, 24px);
+    
+    width: 10vw; /* Адаптивная ширина */
+    height: auto; /* Высота зависит от содержимого */
+    line-height: normal; /* Линия текста адаптируется под размер шрифта */
+    padding: 0.75vh 0.25vw; /* Внутренние отступы */
+    
+    cursor: pointer;
+    border: none;
+    
+    min-width: 100px;
+    min-height: 5vh; /* Минимальная высота для кнопки */
+    
+    border-radius: 1vmin; /* Радиус скругления углов adaptive*/
+    
+    background-color: var(--primary-button-color);
+    color: #282c34;
+    transition: background-color 0.6s ease, transform 0.2s ease, box-shadow 0.2s ease;
+
+  }
+  
+  .menu-button:hover {
+    background-color: var(--hover-button-color);
+    box-shadow: 0 0 6px var(--hover-button-color); /* Подсветка при фокусе */
+  }
+  
+  .menu-button:active {
+    background-color: var(--active-button-color);
+    transform: scale(0.95); /* Уменьшение кнопки при нажатии */
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2); /* Добавление тени при нажатии */
+  }
+  

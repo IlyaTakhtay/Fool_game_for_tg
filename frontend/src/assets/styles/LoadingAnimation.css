@@ -1,0 +1,72 @@
+/* Контейнер для анимации */
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: var(--background-color);
+  }
+  
+  /* Текст под анимацией */
+  .loading-text {
+    color: var(--primary-text-color);
+    font-size: 1.2rem;
+    margin-top: 20px;
+  }
+  
+  /* Спиннер */
+  .spinner {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    transform: translateZ(0);
+  }
+  
+  .spinner::before,
+  .spinner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 8px solid transparent; /* Прозрачные границы */
+    border-radius: 50%; /* Закругляем края */
+    box-sizing: border-box; /* Учитываем границы */
+  }
+  
+  .spinner::before {
+    border-top-color: var(--primary-button-color); /* Верхняя часть круга */
+    animation: spinner-rotate-before 1.2s linear infinite; /* Анимация вращения */
+  }
+  
+  .spinner::after {
+    border-bottom-color: var(--hover-button-color); /* Нижняя часть круга */
+    animation: spinner-rotate-after 1.2s linear infinite; /* Анимация вращения */
+  }
+
+  .spinner::before, .spinner::after {
+    animation-timing-function: cubic-bezier(0.55, 0.35, 0.45, 0.85); 
+    }   
+  
+  /* Анимация для ::before */
+  @keyframes spinner-rotate-before {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  
+  /* Анимация для ::after (в обратную сторону) */
+  @keyframes spinner-rotate-after {
+    from {
+      transform: rotate(360deg);
+    }
+    to {
+      transform: rotate(0deg);
+    }
+  }
+  

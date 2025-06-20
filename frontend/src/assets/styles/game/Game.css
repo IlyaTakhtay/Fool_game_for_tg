@@ -1,0 +1,185 @@
+.card-table {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background-color: #006400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.table__center-area {
+  position: absolute;
+  width: 290px;
+  height: 290px;
+  background-color: #2f4f2f;
+  border-radius: 5%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  text-align: center;
+  z-index: 1;
+}
+
+.table__played-cards {
+  display: flex;
+  flex-wrap: wrap;
+  /* Позволяет картам переходить на новую строку */
+  gap: 50px;
+  max-width: 290px;
+  /* Ширина для двух строк, можно подбирать */
+  justify-content: center;
+  color: white;
+}
+
+
+.table__card {
+  width: 50px;
+  height: 70px;
+  background-color: #3a3f47;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 80px;
+  margin: 0 5px;
+}
+
+
+.player__info {
+  background: brown;
+  border-radius: 25px 5px;
+  max-height: 45px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  justify-content: center;
+  gap: 1vw;
+  z-index: 3;
+}
+
+/* Стили для фотографии профиля */
+.player__profile-image {
+  width: 35px;
+  /* Вы можете изменить размер под свои нужды */
+  height: 35px;
+  border-radius: 50%;
+  /* Делаем фото круглым */
+  background-color: #3a3f47;
+  transition: border 0.3s ease;
+  /* Плавный переход цвета рамки */
+}
+
+.border-green {
+  border: 2px solid green;
+}
+
+.border-red {
+  border: 2px solid red;
+}
+
+.player__cards {
+  display: flex;
+  justify-content: center;
+  /* Центрирует карты по горизонтали */
+  align-items: center;
+  /* Центрирует карты по вертикали */
+  flex-direction: row;
+  position: relative;
+}
+
+.card-table__your-cards {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  gap: 1vw;
+  background-color: rgba(0, 0, 0, 0.6);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  box-sizing: border-box;
+  z-index: 2;
+}
+
+.card--face,
+.card--back {
+  width: 5.3vw;
+  /* Ширина карты будет 10% от ширины окна */
+  height: 16.7vh;
+  /* Высота карты будет 14% от высоты окна */
+  /* font-size: 8vw;   
+  background-color: #3a3f47;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: grab;
+  padding: 0px 4px 15px 4px; */
+}
+
+
+.card--back {
+  background: url('assets/images/imperial_back.png');
+  /* Укажите путь к изображению задней стороны карты */
+  overflow: overlay;
+  background-size: cover;
+  /* Заполняет весь контейнер */
+  /* background-position: center; */
+  margin-left: -4vw;
+  /* Смещение карт */
+  padding: 0.5vh;
+  /* background-color: #50565e; */
+}
+
+.card--back:first-child {
+  margin-left: 0;
+  /* Для первой карты, чтобы не было смещения */
+}
+
+.card--on-table {
+  width: clamp(12px, 4vw, 65px);
+  height: clamp(18px, 6vw, 95px);
+  ;
+
+  cursor: default !important;
+  opacity: 0.95;
+  pointer-events: none;
+}
+
+.ready-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  background-color: #e0e0e0;
+  color: #666;
+  z-index: 1000;
+}
+
+.ready-button:hover {
+  background-color: #d0d0d0;
+  transform: scale(1.05);
+}
+
+.ready-button--active {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.ready-button--active:hover {
+  background-color: #45a049;
+}

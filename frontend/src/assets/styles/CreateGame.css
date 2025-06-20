@@ -1,0 +1,42 @@
+/* TODO: configure adaptive */
+.create-game-form__field-group {
+  /* display: flex; */
+  gap:5px
+}
+
+.create-game-form__label {
+  display: block;
+  padding-bottom: 0.55vh;
+  font-size: clamp(12px, 1vw, 24px);
+}
+
+.create-game-form__select {
+  appearance: none; /* TODO: is it necessary ??? */
+  width: 100%;
+  font-size: clamp(8px, 0.9vw, 20px);
+
+  padding: 1.2vmin 1.4vmin;
+  border-radius: 1vmin; /* Радиус скругления углов adaptive*/
+
+  background-color: var(--background-color);
+  border: 2px solid var(--primary-button-color);
+  color: var(--primary-text-color);
+
+  cursor: pointer;
+
+  /* Добавляем место для стрелки */
+  background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="%23ffffff" d="M7.41,7.84L12,12.42l4.59-4.58L18,9l-6,6-6-6Z"/></svg>');
+  background-repeat: no-repeat;
+  background-position: right center;
+  transition: border-color 0.4s ease, box-shadow 0.2s ease;
+}
+
+/* TODO тут поиграться еще с цветами и типом реакций */
+.create-game-form__select:hover {
+  box-shadow: 0 0 6px var(--hover-button-color); /* Подсветка при фокусе */
+}
+
+.create-game-form__select:focus {
+  outline: none;
+  border-color: var(--hover-button-color); /* Изменение цвета рамки при наведении */
+}

@@ -1,0 +1,20 @@
+.card-table__players {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    gap: 1vw;
+    display: flex;
+    flex-direction: row;         /* Горизонтальная строка */
+    align-items: flex-start;     /* Выровнять по верхнему краю */
+    justify-content: center;     /* Центрировать по горизонтали */
+    padding: 10px 0;             /* Отступ сверху (по желанию) */
+    height: auto;                /* Высота по содержимому */
+    z-index: 2;
+  }
+
+  .player {
+    text-align: center;
+    color: white;
+    width: 18.5%;
+  }

@@ -1,68 +1,159 @@
-from collections import defaultdict
+import logging
+from typing import Dict, List, Optional, Union
 from fastapi import WebSocket
+
+logger = logging.getLogger(__name__)
+
 
 class ConnectionManager:
     """
-    Менеджер подключений. Управляет WebSocket соединениями игроков и их привязкой к играм.
+    Менеджер подключений. Управляет WebSocket соединениями игроков.
     """
+
     def __init__(self):
         """
         Инициализация менеджера подключений.
-        
+
         Атрибуты:
-            game_players (defaultdict): Словарь вида {game_id: {player_id: websocket}}, 
-                                        где хранится информация о подключениях игроков к играм.
+            connections (dict): Словарь вида {player_id: websocket},
+                              где хранится информация о подключениях игроков.
         """
-        self.game_players = defaultdict(dict)  # {game_id: {player_id: websocket}}
-    
-    async def connect(self, game_id: str, player_id: str, websocket: WebSocket):
+        self.connections: dict[str, WebSocket] = {}  # {player_id: websocket}
+
+    async def connect(self, player_id: str, websocket: WebSocket):
         """
-        Подключает игрока к игре и сохраняет его WebSocket соединение.
+        Подключает игрока и сохраняет его WebSocket соединение.
 
         Args:
-            game_id (str): Уникальный идентификатор игры.
             player_id (str): Уникальный идентификатор игрока.
             websocket (WebSocket): WebSocket соединение игрока.
+        """
+        if not player_id:
+            raise ValueError("player_id не может быть пустым")
 
-        Raises:
-            RuntimeError: Если соединение уже существует для данного игрока в игре.
+        # Закрываем старое соединение, если оно есть
+        if player_id in self.connections:
+            old_websocket = self.connections[player_id]
+            try:
+                await old_websocket.close(code=1000, reason="Reconnection")
+            except Exception as e:
+                logger.error(
+                    f"Ошибка при закрытии старого соединения для игрока {player_id}: {e}"
+                )
+
+        # Создаем новое соединение
+        try:
+            await websocket.accept()
+        except Exception as e:
+            logger.debug(f"WebSocket уже принят для игрока {player_id}: {e}")
+
+        # Сохраняем соединение
+        self.connections[player_id] = websocket
+        logger.info(f"Игрок {player_id} подключен")
+
+    def disconnect(self, player_id: str):
         """
-        if player_id in self.game_players[game_id]:
-            raise RuntimeError(f"Игрок {player_id} уже подключен к игре {game_id}.")
-        
-        self.game_players[game_id][player_id] = websocket
-    
-    def disconnect(self, game_id: str, player_id: str):
-        """
-        Отключает игрока от игры и удаляет его WebSocket соединение.
+        Отключает игрока и удаляет его WebSocket соединение.
 
         Args:
-            game_id (str): Уникальный идентификатор игры.
             player_id (str): Уникальный идентификатор игрока.
+        """
+        if player_id in self.connections:
+            del self.connections[player_id]
+            logger.info(f"Игрок {player_id} отключен")
 
-        Raises:
-            KeyError: Если игрок или игра не найдены.
+    async def broadcast_to_players(
+        self,
+        player_ids: List[str],
+        message: dict,
+        exclude: Union[str, List[str], None] = None,
+    ) -> int:
         """
-        if game_id in self.game_players and player_id in self.game_players[game_id]:
-            self.game_players[game_id].pop(player_id)
-    
-    async def broadcast(self, game_id: str, message: dict):
-        """
-        Отправляет сообщение всем подключенным игрокам в указанной игре.
+        Отправляет сообщение указанным игрокам.
 
         Args:
-            game_id (str): Уникальный идентификатор игры.
+            player_ids (List[str]): Список ID игроков для отправки.
+            message (dict): Сообщение для отправки в формате JSON.
+            exclude (str | list[str] | None): ID игрока(ов) которых нужно исключить из рассылки.
+
+        Returns:
+            int: Количество игроков, которым успешно доставлено сообщение.
+        """
+        excluded_players = []
+        if exclude:
+            excluded_players = [exclude] if isinstance(exclude, str) else exclude
+
+        successful_sends = 0
+        failed_players = []
+
+        for player_id in player_ids:
+            if player_id in excluded_players:
+                continue
+
+            if player_id not in self.connections:
+                logger.warning(f"Игрок {player_id} не имеет активного соединения")
+                continue
+
+            try:
+                await self.connections[player_id].send_json(message)
+                successful_sends += 1
+            except Exception as e:
+                logger.error(f"Ошибка при отправке сообщения игроку {player_id}: {e}")
+                failed_players.append(player_id)
+
+        for player_id in failed_players:
+            self.disconnect(player_id)
+
+        if failed_players:
+            logger.warning(
+                f"Удалены игроки с неработающими соединениями: {failed_players}"
+            )
+
+        return successful_sends
+
+    async def send_message(self, player_id: str, message: dict) -> bool:
+        """
+        Отправляет сообщение одному игроку.
+
+        Args:
+            player_id (str): Уникальный идентификатор игрока.
             message (dict): Сообщение для отправки в формате JSON.
 
-        Raises:
-            KeyError: Если игра не найдена.
-            RuntimeError: Если отправка сообщения одному из игроков завершилась ошибкой.
+        Returns:
+            bool: True если сообщение успешно отправлено, False в противном случае.
         """
-        if game_id not in self.game_players:
-            raise KeyError(f"Игра с ID {game_id} не найдена.")
-        
-        for ws in self.game_players[game_id].values():
-            try:
-                await ws.send_json(message)
-            except Exception as e:
-                raise RuntimeError(f"Ошибка при отправке сообщения игроку.") from e
+        if player_id not in self.connections:
+            logger.warning(f"Игрок {player_id} не имеет активного соединения")
+            return False
+
+        try:
+            await self.connections[player_id].send_json(message)
+            return True
+        except Exception as e:
+            logger.error(f"Ошибка при отправке сообщения игроку {player_id}: {e}")
+            self.disconnect(player_id)
+            return False
+
+    def get_connection(self, player_id: str) -> Optional[WebSocket]:
+        """
+        Возвращает WebSocket соединение игрока.
+
+        Args:
+            player_id (str): Уникальный идентификатор игрока.
+
+        Returns:
+            Optional[WebSocket]: WebSocket соединение игрока или None, если соединение не найдено.
+        """
+        return self.connections.get(player_id)
+
+    def is_connected(self, player_id: str) -> bool:
+        """
+        Проверяет, подключен ли игрок.
+
+        Args:
+            player_id (str): Уникальный идентификатор игрока.
+
+        Returns:
+            bool: True если игрок подключен, False в противном случае.
+        """
+        return player_id in self.connections

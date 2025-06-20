@@ -1,0 +1,97 @@
+.beauty-form {
+  gap: 2.5vh;
+  padding: 2%;
+  border-radius: 1vmin;
+  /* Радиус скругления углов adaptive*/
+
+  background-color: #3a3f47;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+
+  display: flex;
+  flex-direction: column;
+
+  overflow-y: scroll;
+  scrollbar-width: none;
+}
+
+/* #TODO: разобраться с неймингом */
+.beauty-form--table {
+  flex-grow: 1;
+  width: 100%;
+  max-width: 800px;
+  overflow-y: auto;
+}
+
+.beauty-form__buttons {
+  padding-top: 1.5vh;
+  gap: 1vw;
+
+  display: flex;
+  justify-content: space-between;
+  /* Кнопки разнесены по бокам */
+}
+
+
+/* TODO: поправить, убрать лишнее, адаптировать по досновной стиль */
+.beauty-form__input {
+  appearance: none;
+  /* Убираем стандартный стиль */
+  width: 100%;
+  font-size: clamp(12px, 1vw, 24px);
+  /* Адаптивный размер текста */
+
+  padding: 1.2vmin 1.4vmin;
+  /* Пространство внутри */
+  border-radius: 1vmin;
+  /* Скругленные углы */
+
+  background-color: var(--background-color);
+  /* Фон инпута */
+  border: 2px solid var(--primary-button-color);
+  /* Цвет рамки */
+  color: var(--primary-text-color);
+  /* Цвет текста */
+
+  transition: border-color 0.4s ease, box-shadow 0.2s ease, background-color 0.3s ease;
+
+  cursor: text;
+  /* Курсор для ввода текста */
+}
+
+/* Эффект при наведении */
+.beauty-form__input:hover {
+  box-shadow: 0 0 6px var(--hover-button-color);
+  /* Подсветка */
+}
+
+/* Эффект при фокусе */
+.beauty-form__input:focus {
+  outline: none;
+  border-color: var(--hover-button-color);
+  /* Изменение цвета рамки */
+  background-color: var(--focus-background-color);
+  /* Легкое изменение фона при фокусе */
+}
+
+/* Эффект для заполненного поля (если нужно) */
+.beauty-form__input:valid {
+  border-color: var(--success-color);
+  /* Цвет рамки для валидного поля */
+}
+
+/* Плейсхолдер (если он используется) */
+.beauty-form__input::placeholder {
+  color: var(--secondary-text-color);
+  font-style: italic;
+}
+
+.beauty-form__error {
+  color: #ff3333;
+  margin-top: 8px;
+  font-size: 14px;
+  text-align: center;
+  padding: 8px;
+  background-color: rgba(255, 51, 51, 0.1);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 51, 51, 0.2);
+}

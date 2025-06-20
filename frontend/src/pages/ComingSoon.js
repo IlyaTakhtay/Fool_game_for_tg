@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import SoloButton from '../components/SoloButton';
-import './Pages.css';
+import MenuButton from '../components/UI/MenuButton';
+import 'assets/styles/Pages.css';
 
 function ComingSoon() {
   const navigate = useNavigate();
@@ -17,7 +17,7 @@ function ComingSoon() {
   return (
     <div className="page-container">
       <h1 className="form-title">В разработке!</h1>
-      <SoloButton onClick={handleBackwards} text="Назад" />
+      <MenuButton onClick={handleBackwards} text="Назад" />
     </div>
   );
 }

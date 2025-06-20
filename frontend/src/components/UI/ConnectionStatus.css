@@ -1,0 +1,25 @@
+.connection-status {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: var(--status-color, green);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    z-index: 1000;
+}
+
+.connection-status[data-status="Connected"] {
+    --status-color: green;
+}
+
+.connection-status[data-status="Disconnected"],
+.connection-status[data-status="Error"] {
+    --status-color: red;
+}
+
+.connection-status[data-status="Connecting"],
+.connection-status[data-status="Reconnecting"] {
+    --status-color: orange;
+}

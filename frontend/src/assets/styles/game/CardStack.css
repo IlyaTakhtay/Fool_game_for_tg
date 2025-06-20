@@ -1,0 +1,87 @@
+.card-stack {
+    min-width: clamp(12px, 4vw, 65px);  /* ширина одной карты */
+    min-height: clamp(18px, 6vw, 96px); /* высота одной карты */
+    margin-top: -25px;
+    display: flex;
+    align-items: center;
+    gap: 0; /* убираем gap, чтобы перекрытие работало корректно */
+    z-index: 2;
+  }
+  
+  /* Карта: ширина и высота адаптивные, перекрытие тоже адаптивное */
+  .card-stack__card {
+    width: clamp(12px, 4vw, 65px);     /* min 40px, обычно 8vw, max 100px */
+    height: clamp(18px, 6vw, 96px);   /* min 60px, обычно 12vw, max 150px */
+    margin-left: calc(-1.75cqw); /* перекрытие зависит от ширины контейнера */
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    background: #fff;
+  }
+  
+  .card-stack__card:first-child {
+    margin-left: 0;
+  }
+  
+  /* +N: размер и отступ адаптивные */
+  .card-stack__more {
+    color: #fff;
+    border-radius: 10px;
+    padding: 2px 8px; /* TODO: make adaptive to vw */
+    font-weight: bold;
+    /* margin-left: clamp(4px, 1vw, 12px); */
+    font-size: clamp(8px, 1.5vw, 18px);
+    z-index: 2;
+    background-image: url('assets/images/imperial_back.png');
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+  
+  /* Тултип: адаптивный шрифт */
+  .card-stack__tooltip {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #222;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    white-space: nowrap;
+    margin-top: 8px;
+    z-index: 100;
+    font-size: clamp(12px, 2vw, 20px);
+  }
+
+
+
+  .card-stack--dense .card-stack__card {
+    position: relative;
+    margin-top: 0;
+    margin-left: calc(-3.985cqw);
+  }
+  
+  .card-stack--dense .card-stack__card:first-child {
+    margin-left: 0;
+  }
+
+  .card-stack__tooltip--rotated {
+    left:70%;
+    top:20%;
+    transform: rotate(-90deg);
+    /* transform-origin: left top; настройте при необходимости */
+  }
+  
+  /* Дополнительно: чуть уменьшаем карты на очень маленьких экранах */
+  /* TODO: доделать */
+  /* @media (max-width: 500px) {
+    .card-stack__card {
+      width: 12vw;
+      height: 18vw;
+      margin-left: -8vw;
+    }
+    .card-stack__more {
+      font-size: 4vw;
+    }
+  } */
+  

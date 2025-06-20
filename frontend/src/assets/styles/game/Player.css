@@ -1,0 +1,53 @@
+.player__profile {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+}
+
+.border-green {
+    border: 2px solid green;
+}
+
+.border-red {
+    border: 2px solid red;
+}
+
+/* .player__info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+
+.player__profile {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid #666;
+    transition: border-color 0.3s ease;
+    position: relative;
+    background-color: #3a3f47;
+}
+
+.player__profile--ready {
+    border-color: #4CAF50;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+}
+
+.player__profile-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.player__name {
+    color: white;
+    font-size: 14px;
+    margin: 0;
+    text-align: center;
+} */

@@ -1,11 +1,13 @@
 import React from 'react';
+import { getCardSvgPath } from 'utils/cardSvgLinker';
 
-function Card({ card, className, draggable, onDragStart }) {
+export default function Card({ card, ...props }) {
   return (
-    <div className={className} draggable={draggable} onDragStart={onDragStart}>
-      {card}
-    </div>
+    <img
+      src={getCardSvgPath(card)}
+      alt={`${card.rank} of ${card.suit}`}
+      className="card-svg"
+      {...props}
+    />
   );
 }
-
-export default Card;

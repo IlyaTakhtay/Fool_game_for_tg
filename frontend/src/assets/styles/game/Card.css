@@ -1,0 +1,18 @@
+.card-svg {
+    width: clamp(12px, 4vw, 65px);
+    height: clamp(18px, 6vw, 95px);;
+}
+
+.deck__trump-card {
+    width: clamp(12px, 4vw, 65px);
+    height: clamp(18px, 6vw, 96px);
+    border-radius: 6px;
+    transform: rotate(90deg);
+    position: relative;
+    left: 50%;
+  }
+.deck__trump-suit {
+    position: relative;
+    left: 150%;
+    width: 3.3vw;
+}

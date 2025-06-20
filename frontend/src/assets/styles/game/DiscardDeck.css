@@ -1,0 +1,17 @@
+.discard-deck {
+    position: absolute;
+    right: 0;
+    transform: rotate(180deg);
+}
+
+.discard-deck__card {
+    position: absolute;
+    left: -20px;
+    user-select: none;
+    pointer-events: none;
+    width: clamp(12px, 4vw, 65px);
+    height: clamp(18px, 6vw, 96px);
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    background: #fff;
+}
