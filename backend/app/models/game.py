@@ -148,10 +148,13 @@ class FoolGame(Game):
             logger.info(
                 f"Смена состояния: {self._current_state.__class__.__name__} -> {response.next_state}"
             )
-            for state_class in GameState.__subclasses__():
-                if state_class.__name__ == response.next_state:
-                    transition: StateTransition = self._set_state(state_class(self))
-                    return transition
+            # Find the state class by name from all GameState subclasses
+            state_class = next((s for s in GameState.__subclasses__() if s.__name__ == response.next_state), None)
+            
+            if state_class:
+                transition: StateTransition = self._set_state(state_class(self))
+                return transition
+            
             logger.warning(f"Состояние {response.next_state} не найдено.")
             return StateResponse(
                 ActionResult.INVALID_ACTION,
@@ -196,3 +199,33 @@ class FoolGame(Game):
             if player.id_ == player_id:
                 return i + 1
         return None
+
+    def reset_to_lobby(self):
+        """Resets the game to a clean lobby state for a new game."""
+        logger.info(f"Resetting game {self.game_id} to lobby state.")
+        for player in self.players:
+            player.clear_hand()
+            player.status = PlayerStatus.UNREADY
+        
+        self.round_defender_status = None
+        # The transition to LobbyState will call its `enter` method,
+        # which already resets the deck, table, and attacker/defender IDs.
+        self._set_state(LobbyState(self))
+
+    def get_allowed_actions(self) -> Dict[str, List[str]]:
+        """
+        Delegates getting allowed actions to the current state.
+        """
+        if self._current_state and hasattr(self._current_state, "get_allowed_actions"):
+            return self._current_state.get_allowed_actions()
+        # Return a default (e.g., only QUIT) if no state or method exists
+        return {p.id_: [PlayerAction.QUIT.name] for p in self.players}
+
+    def _initialize_states(self):
+        from backend.app.states.lobby_state import LobbyState
+        from backend.app.states.play_round_state import (
+            PlayRoundWithoutThrowState,
+            PlayRoundWithThrowState,
+            PlayRoundWithThrowAndDefendState,
+            PlayRoundWithThrowAndDefendAndAttackState,
+        )

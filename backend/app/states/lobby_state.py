@@ -201,25 +201,17 @@ class LobbyState(GameState):
             )
         return None
 
-    def get_allowed_actions(self) -> Dict[int, List[PlayerAction]]:
+    def get_allowed_actions(self) -> Dict[str, List[str]]:
         """
-        Возвращает список разрешенных действий для каждого игрока
-
-        Returns:
-            Dict[int, List[PlayerAction]]: Словарь {id_игрока: [разрешенные_действия]}
+        Возвращает разрешенные действия в зависимости от статуса игрока.
         """
         allowed_actions = {}
-
-        # Для уже присоединившихся игроков
         for player in self.game.players:
-            actions = [PlayerAction.QUIT]
-
-            # Добавляем действие READY если игрок не готов, или UNREADY если готов
-            if player.status != PlayerStatus.READY:
-                actions.append(PlayerAction.READY)
+            actions = [PlayerAction.QUIT.name]
+            if player.status == PlayerStatus.READY:
+                actions.append(PlayerAction.UNREADY.name)
             else:
-                actions.append(PlayerAction.UNREADY)
-
+                actions.append(PlayerAction.READY.name)
             allowed_actions[player.id_] = actions
         return allowed_actions
 

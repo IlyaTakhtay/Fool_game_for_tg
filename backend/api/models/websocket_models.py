@@ -8,6 +8,7 @@ class MessageType(str, Enum):
     PLAYER_CONNECTED = "player_connected"
     PLAYER_DISCONNECTED = "player_disconnected"
     PLAYER_STATUS = "player_status"
+    SELF_STATUS_UPDATE = "self_status_update"
 
     # Game Actions
     PLAY_CARD = "play_card"
@@ -17,7 +18,6 @@ class MessageType(str, Enum):
     # Game Events (outgoing)
     CONNECTION_CONFIRMED = "connection_confirmed"
     GAME_STATE_UPDATE = "game_state_update"
-    CARD_PLAYED = "card_played"
     ROUND_ENDED = "round_ended"
     GAME_STARTED = "game_started"
     GAME_ENDED = "game_ended"
@@ -53,6 +53,7 @@ class PrivatePlayerData(BaseModel):
     status: str
     position: int
     cards: list[dict[str, str]]  # Для самого игрока
+    allowed_actions: list[str] = []
 
 
 class PlayerConnectionResponse(BaseModel):
@@ -69,6 +70,8 @@ class PublicPlayerData(BaseModel):
 
 
 class PlayerJoinedResponse(BaseModel):
+    """Новый игрок присоединился"""
+
     type: MessageType = MessageType.PLAYER_JOINED
     data: PublicPlayerData
 
@@ -114,36 +117,21 @@ class PlayerStatusChangedResponse(BaseModel):
     data: PlayerStatusData
 
 
+class SelfStatusUpdateData(BaseModel):
+    status: str
+    allowed_actions: list[str]
+
+
+class SelfStatusUpdateResponse(BaseModel):
+    type: MessageType = MessageType.SELF_STATUS_UPDATE
+    data: SelfStatusUpdateData
+
+
 class GameStateUpdateResponse(BaseModel):
     """Обновление состояния игры"""
 
     type: MessageType = MessageType.GAME_STATE_UPDATE
     data: Dict[str, Any]  # полное состояние игры
-
-
-class CardPlayedData(BaseModel):
-    """Данные для события 'карта сыграна'"""
-    player_id: str
-    cards_count: int
-    table_cards: list[dict]
-    # Keep other potential fields from answer.data flexible
-    attack_card: Optional[dict] = None
-    defend_card: Optional[dict] = None
-    attacker_id: Optional[str] = None
-    defender_id: Optional[str] = None
-
-
-class CardPlayedResponse(BaseModel):
-    """Карта была сыграна"""
-    type: MessageType = MessageType.CARD_PLAYED
-    data: CardPlayedData
-
-
-class PlayerJoinedResponse(BaseModel):
-    """Новый игрок присоединился"""
-
-    type: MessageType = MessageType.PLAYER_JOINED
-    data: PublicPlayerData
 
 
 class PlayerLeftResponse(BaseModel):
@@ -185,3 +173,13 @@ class ErrorResponse(BaseModel):
         "message": "Invalid action",
         "code": "INVALID_CARD",
     }
+
+
+class GameOverData(BaseModel):
+    winner_id: str | None
+    loser_ids: list[str]
+
+
+class GameOverResponse(BaseModel):
+    type: MessageType = MessageType.GAME_ENDED
+    data: GameOverData

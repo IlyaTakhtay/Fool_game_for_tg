@@ -11,44 +11,60 @@ from typing import Dict, List, Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from backend.app.models.game import FoolGame
+    from backend.app.models.player import Player
 
 
 class GameOverState(GameState):
-    pass
-    # TODO по идее просто крафтим штуку кторая очистит все левые поля и переключит в lobby_state вместе со всеми игроками
     """
     Состояние игры: Завершение матча
     """
 
     def __init__(self, game: FoolGame):
-        self.game: FoolGame = game
+        self.game = game
+        self.winner_id: str | None = None
+        self.loser_ids: List[str] = []
 
-    def enter(self) -> None:
-        """Отправляем заглушку"""
-        # Заглушка для инициации перехода к другому состоянию #TODO: либо убрать состояние DealState либо переписать обработку enter в классе FoolGame
-        self.game.handle_input(
-            player_input=PlayerInput(
-                99,
-                PlayerAction.READY,
-            )
-        )
-        # TODO: обновить возвраты
-        # return {
-        #     "message": "Драка завершена.",
-        #     "table_cards": [str(card) for card in self.game.game_table.table_cards]
-        # }
-
-    def handle_input(self, player_input: PlayerInput) -> StateResponse:
-        return StateResponse(
-            ActionResult.SUCCESS, "Подготавливаем новую игру", "LobbyState"
+    def enter(self) -> Dict[str, Any]:
+        """Определяет победителя и проигравших и возвращает информацию."""
+        
+        # Находим игрока, у которого не осталось карт
+        winner: Player | None = next(
+            (p for p in self.game.players if not p.get_cards()), None
         )
 
-    def exit(self) -> None:
-        """Выход из состояния раздачи"""
-        # Определение новых ролей если игра продолжается
-        self._clear_statuses()
-        self.game.game_table.clear_table()
-        self._clear_players_cards()
+        if winner:
+            self.winner_id = winner.id_
+            self.loser_ids = [p.id_ for p in self.game.players if p.id_ != winner.id_]
+            message = f"Игра окончена! Победитель: {winner.name}."
+        else:
+            # Случай "ничьи", если у нескольких игроков одновременно кончились карты,
+            # или если победитель не определен по какой-то причине.
+            self.loser_ids = [p.id_ for p in self.game.players]
+            message = "Игра окончена! Победителя нет."
+            
+        return {
+            "message": message,
+            "winner_id": self.winner_id,
+            "loser_ids": self.loser_ids,
+        }
+
+    def exit(self) -> Dict[str, Any]:
+        return {"message": "Выход из экрана окончания игры."}
+
+    def handle_input(self, player_input) -> None:
+        # В этом состоянии нет действий от игроков
+        return None
+
+    def get_allowed_actions(self) -> Dict[str, list]:
+        # В этом состоянии нет разрешенных действий
+        return {p.id_: [] for p in self.game.players}
+
+    def get_state_info(self) -> Dict[str, Any]:
+        return {
+            "message": "Игра окончена",
+            "winner_id": self.winner_id,
+            "loser_ids": self.loser_ids,
+        }
 
     def _clear_statuses(self) -> None:
         """Очистка ролей игроков"""
@@ -58,6 +74,3 @@ class GameOverState(GameState):
     def _clear_players_cards(self) -> None:
         for player in self.game.players:
             player.clear_hand()
-
-    def get_allowed_actions(self):
-        return super().get_allowed_actions()

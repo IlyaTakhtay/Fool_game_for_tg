@@ -40,7 +40,8 @@ function Game() {
     deckSize: isUsingMocks ? currentScenario.deckCount : 0,
     trumpSuit: isUsingMocks ? currentScenario.trumpSuit : '',
     gamePhase: 'LobbyState',
-    playerStatus: 'waiting'
+    playerStatus: 'waiting',
+    yourAllowedActions: []
   });
 
   // Добавляем состояние для отображения кнопки готовности
@@ -66,14 +67,6 @@ function Game() {
         status: 'ready'
       }
     });
-    setGameState(prev => {
-      console.log('Обновляем состояние на ready:', {
-        oldStatus: prev.playerStatus,
-        newStatus: 'ready',
-        playerId: sessionStorage.getItem('playerId')
-      });
-      return { ...prev, playerStatus: 'ready' };
-    });
   }, [sendWebSocketMessage]);
 
   const sendPlayerNotReady = useCallback(() => {
@@ -84,14 +77,6 @@ function Game() {
         player_id: sessionStorage.getItem('playerId'),
         status: 'not_ready'
       }
-    });
-    setGameState(prev => {
-      console.log('Обновляем состояние на not_ready:', {
-        oldStatus: prev.playerStatus,
-        newStatus: 'not_ready',
-        playerId: sessionStorage.getItem('playerId')
-      });
-      return { ...prev, playerStatus: 'not_ready' };
     });
   }, [sendWebSocketMessage]);
 
@@ -246,6 +231,7 @@ function Game() {
               })),
               playerStatus: playerStatus,
               gamePhase: message.data.current_state || 'LobbyState',
+              yourAllowedActions: message.data.allowed_actions || [],
               isAttacker: isCurrentPlayerAttacker,
               isDefender: isCurrentPlayerDefender
             };
@@ -264,64 +250,6 @@ function Game() {
               currentState: newState.gamePhase
             });
 
-            return newState;
-          });
-          break;
-
-        case 'card_played':
-          console.log('Card played - full data:', {
-            message: message.data,
-            state_info: message.data.state_info,
-            attacker_id: message.data.attacker_id,
-            defender_id: message.data.defender_id,
-            state_info_attacker: message.data.state_info?.attacker_id,
-            state_info_defender: message.data.state_info?.defender_id
-          });
-          console.log('CARD_PLAYED table_cards:', message.data.table_cards);
-
-          setGameState(prev => {
-            // Find the player who played the card and update their card count
-            const updatedPlayers = prev.players.map(p => {
-              if (p.id === message.data.player_id) {
-                return { ...p, cards: message.data.cards_count };
-              }
-              return p;
-            });
-
-            // Optimistically update the current player's hand if they are the one who played
-            let updatedYourCards = prev.yourCards;
-            if (message.data.player_id === prev.player_id) {
-                const playedCard = message.data.defend_card || message.data.attack_card;
-                if(playedCard) {
-                    updatedYourCards = prev.yourCards.filter(
-                        c => !(c.rank === playedCard.rank && c.suit === playedCard.suit)
-                    );
-                }
-            }
-
-            const newState = {
-              ...prev,
-              players: updatedPlayers,
-              yourCards: updatedYourCards,
-              tableCards: (message.data.table_cards || []).map(pair => ({
-                base: pair.attack_card,
-                cover: pair.defend_card || null
-              })),
-              current_attacker_id: message.data.current_state === 'LobbyState'
-                ? message.data.state_info?.attacker_id
-                : message.data.attacker_id,
-              current_defender_id: message.data.current_state === 'LobbyState'
-                ? message.data.state_info?.defender_id
-                : message.data.defender_id,
-              gamePhase: message.data.current_state || prev.gamePhase,
-            };
-            console.log('Updated game state after card played:', {
-              currentAttackerId: newState.current_attacker_id,
-              currentDefenderId: newState.current_defender_id,
-              playerId: prev.player_id,
-              isDefender: newState.current_defender_id === prev.player_id,
-              currentState: newState.gamePhase
-            });
             return newState;
           });
           break;
@@ -352,17 +280,24 @@ function Game() {
           }));
           break;
 
+        case 'self_status_update':
+          setGameState(prev => {
+            const updatedPlayers = prev.players.map(p =>
+              p.id === prev.player_id
+                ? { ...p, status: message.data.status }
+                : p
+            );
+            return {
+              ...prev,
+              playerStatus: message.data.status,
+              yourAllowedActions: message.data.allowed_actions,
+              players: updatedPlayers,
+            };
+          });
+          break;
+
         case 'player_status':
         case 'player_status_changed':
-          console.log('Player status changed - full data:', {
-            message: message.data,
-            state_info: message.data.state_info,
-            attacker_id: message.data.attacker_id,
-            defender_id: message.data.defender_id,
-            state_info_attacker: message.data.state_info?.attacker_id,
-            state_info_defender: message.data.state_info?.defender_id
-          });
-
           setGameState(prev => ({
             ...prev,
             players: prev.players.map(p =>
@@ -370,8 +305,26 @@ function Game() {
                 ? { ...p, status: message.data.status }
                 : p
             ),
-            ...(message.data.player_id === currentPlayerId ? { playerStatus: message.data.status } : {})
           }));
+          break;
+
+        case 'game_ended':
+          const winnerId = message.data.winner_id;
+          const isWinner = winnerId === currentPlayerId;
+
+          if (isWinner) {
+            toast.success("Поздравляем! Вы победили!", {
+              position: "top-center",
+              autoClose: 5000,
+              toastId: 'game-won',
+            });
+          } else {
+            toast.warn("К сожалению, вы проиграли. Повезет в следующий раз!", {
+              position: "top-center",
+              autoClose: 5000,
+              toastId: 'game-lost',
+            });
+          }
           break;
 
         case 'game_phase_changed':
@@ -521,10 +474,18 @@ function Game() {
     return Math.max(0, TOTAL_DECK_CARDS - (playersCardsSum + yourCardsCount + tableCardsCount + gameState.deckSize));
   }, [gameState]);
 
+  const canAttack = gameState.yourAllowedActions.includes('ATTACK');
+  const canDefend = gameState.yourAllowedActions.includes('DEFEND');
+  const canPass = gameState.yourAllowedActions.includes('PASS');
+
   // Drag-n-drop обработчики
   const handleDragStart = useCallback((event, card) => {
-    event.dataTransfer.setData("application/json", JSON.stringify(card));
-  }, []);
+    if (canAttack || canDefend) {
+      event.dataTransfer.setData("application/json", JSON.stringify(card));
+    } else {
+      event.preventDefault();
+    }
+  }, [canAttack, canDefend]);
 
   const handleDrop = useCallback((event, targetBaseCard) => {
     event.preventDefault();
@@ -554,18 +515,20 @@ function Game() {
       });
     } else {
       if (targetBaseCard) {
-        // Защита (покрытие карты)
-        sendWebSocketMessage({
-          type: 'play_card',
-          attack_card: targetBaseCard,
-          defend_card: card
-        });
+        if (canDefend) {
+          sendWebSocketMessage({
+            type: 'play_card',
+            attack_card: targetBaseCard,
+            defend_card: card
+          });
+        }
       } else {
-        // Атака (новая карта)
-        sendWebSocketMessage({
-          type: 'play_card',
-          attack_card: card
-        });
+        if (canAttack) {
+          sendWebSocketMessage({
+            type: 'play_card',
+            attack_card: card
+          });
+        }
       }
       // Оптимистичное обновление (по желанию)
       setGameState(prev => {
@@ -590,7 +553,7 @@ function Game() {
         return { ...prev, tableCards, yourCards };
       });
     }
-  }, [isUsingMocks, sendWebSocketMessage, game_id]);
+  }, [isUsingMocks, sendWebSocketMessage, game_id, canAttack, canDefend]);
 
   const handleDragOver = useCallback((event) => {
     event.preventDefault();
@@ -620,12 +583,30 @@ function Game() {
         )}
 
         {/* Кнопка готовности всегда видна */}
-        <button
-          onClick={isInLobby ? handleReadyClick : handlePassClick}
-          className={`ready-button ${!isInLobby ? 'pass-button' : (gameState.playerStatus === 'ready' ? 'ready-button--active' : '')}`}
-        >
-          {isInLobby ? (gameState.playerStatus === 'ready' ? 'Не готов' : 'Готов') : 'Пас'}
-        </button>
+        {canPass && (
+          <button
+            onClick={handlePassClick}
+            className="ready-button pass-button"
+          >
+            Пас
+          </button>
+        )}
+        {gameState.yourAllowedActions.includes('READY') && (
+          <button
+            onClick={handleReadyClick}
+            className="ready-button"
+          >
+            Готов
+          </button>
+        )}
+        {gameState.yourAllowedActions.includes('UNREADY') && (
+          <button
+            onClick={handleReadyClick}
+            className="ready-button ready-button--active"
+          >
+            Не готов
+          </button>
+        )}
 
         {/* Показываем статус готовности других игроков */}
         <PlayerPositionsOnTable
@@ -641,8 +622,8 @@ function Game() {
           playedCards={gameState.tableCards}
           onDrop={handleDrop}
           onDragOver={handleDragOver}
-          isDefender={gameState.isDefender}
-          isAttacker={gameState.isAttacker}
+          isDefender={canDefend}
+          isAttacker={canAttack}
         />
 
         <DeckWithTrump
@@ -683,7 +664,7 @@ function Game() {
               key={`${card.rank}-${card.suit}`}
               card={card}
               onDragStart={(e) => handleDragStart(e, card)}
-              draggable
+              draggable={canAttack || canDefend}
               className="card--face"
             />
           ))}

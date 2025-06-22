@@ -179,6 +179,13 @@ class PlayRoundWithoutThrowState(GameState):
                 return self._check_defend_rules(player_input)
             
             if player_input.action == PlayerAction.PASS:
+                # Player cannot take cards if they have already beaten all of them.
+                if self._are_all_cards_on_table_defended():
+                    return StateResponse(
+                        ActionResult.INVALID_ACTION,
+                        "Вы отбили все карты. Ожидайте следующего хода атакующего или его паса."
+                    )
+
                 if not self.game.game_table.table_cards:
                     return StateResponse(ActionResult.INVALID_ACTION, "Нельзя пасовать, если на столе нет карт.")
                 
@@ -319,7 +326,7 @@ class PlayRoundWithoutThrowState(GameState):
         """
         if len(self.game.game_table.table_cards) == 0:
             return True
-        elif len(defender_cards) <= len(
+        elif len(defender_cards) < len(
             [
                 card["attack_card"]
                 for card in self.game.game_table.table_cards
@@ -360,34 +367,44 @@ class PlayRoundWithoutThrowState(GameState):
         self.game.round_defender_status = PlayerAction.DEFEND
         return True
 
-    def get_allowed_actions(self) -> Dict[int, List[PlayerAction]]:
+    def _are_all_cards_on_table_defended(self) -> bool:
+        """Проверяет, все ли карты на столе отбиты, без побочных эффектов."""
+        if not self.game.game_table.table_cards:
+            return True
+        return all(
+            card.get("defend_card") for card in self.game.game_table.table_cards
+        )
+
+    def get_allowed_actions(self) -> Dict[str, List[str]]:
         """
-        Возвращает список разрешенных действий для каждого игрока
-
-        Returns:
-            Dict[int, List[PlayerAction]]: Словарь {id_игрока: [разрешенные_действия]}
+        Возвращает список разрешенных действий для каждого игрока.
+        Возвращает имена действий (строки), а не члены Enum.
         """
-        allowed_actions = {}
+        # By default, players can only quit.
+        allowed_actions = {p.id_: [PlayerAction.QUIT.name] for p in self.game.players}
 
-        # Для атакующего игрока
-        attacker_actions = [PlayerAction.ATTACK, PlayerAction.PASS, PlayerAction.QUIT]
-        allowed_actions[self.game.current_attacker_id] = attacker_actions
+        attacker_id = self.game.current_attacker_id
+        defender_id = self.game.current_defender_id
+        is_defender_collecting = self.game.round_defender_status == PlayerAction.COLLECT
+        all_cards_beaten = self._are_all_cards_on_table_defended()
 
-        # Для защищающегося игрока
-        defender_actions = [
-            PlayerAction.DEFEND,
-            PlayerAction.COLLECT,
-            PlayerAction.QUIT,
-        ]
-        allowed_actions[self.game.current_defender_id] = defender_actions
+        # Determine Attacker's actions
+        if attacker_id in allowed_actions:
+            # Attacker can always try to attack. The validation is in handle_input.
+            allowed_actions[attacker_id].append(PlayerAction.ATTACK.name)
 
-        # Для остальных игроков только выход
-        for player in self.game.players:
-            if (
-                player.id_ != self.game.current_attacker_id
-                and player.id_ != self.game.current_defender_id
-            ):
-                allowed_actions[player.id_] = [PlayerAction.QUIT]
+            # Attacker can pass if the defender is taking cards, or if all cards are beaten.
+            if is_defender_collecting or (self.game.game_table.table_cards and all_cards_beaten):
+                allowed_actions[attacker_id].append(PlayerAction.PASS.name)
+
+        # Determine Defender's actions
+        if defender_id in allowed_actions and not is_defender_collecting and not all_cards_beaten:
+            # The defender can only act if they haven't decided to take the cards
+            # AND there are still cards to be beaten.
+            allowed_actions[defender_id].extend([
+                PlayerAction.DEFEND.name,
+                PlayerAction.PASS.name
+            ])
 
         return allowed_actions
 
