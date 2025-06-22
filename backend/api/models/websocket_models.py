@@ -85,6 +85,8 @@ class PublicGameData(BaseModel):
 
 
 class ReconnectionData(PrivatePlayerData, PublicGameData):
+    """Модель данных для переподключения с полным состоянием игры"""
+    current_state: str | None = None
     pass
 
 
@@ -119,15 +121,22 @@ class GameStateUpdateResponse(BaseModel):
     data: Dict[str, Any]  # полное состояние игры
 
 
+class CardPlayedData(BaseModel):
+    """Данные для события 'карта сыграна'"""
+    player_id: str
+    cards_count: int
+    table_cards: list[dict]
+    # Keep other potential fields from answer.data flexible
+    attack_card: Optional[dict] = None
+    defend_card: Optional[dict] = None
+    attacker_id: Optional[str] = None
+    defender_id: Optional[str] = None
+
+
 class CardPlayedResponse(BaseModel):
     """Карта была сыграна"""
-
     type: MessageType = MessageType.CARD_PLAYED
-    data: Dict[str, Any] = {
-        "player_position": 1,  # позиция игрока (не ID!)
-        "card": {"rank": "ace", "suit": "spades"},
-        "is_attack": True,
-    }
+    data: CardPlayedData
 
 
 class PlayerJoinedResponse(BaseModel):

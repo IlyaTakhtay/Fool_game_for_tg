@@ -1,0 +1,60 @@
+/* frontend/src/assets/styles/game/variables.css */
+:root {
+  /* Colors */
+  --color-background-dark: #282c34;
+  --color-background-table: #006400;
+  --color-background-table-center: #2f4f2f;
+  --color-background-player: brown;
+  --color-background-card-placeholder: #3a3f47;
+  --color-text-light: #ffffff;
+  --color-text-dark: #e1e1e1;
+  --color-text-muted: rgba(255, 255, 255, 0.3);
+  --color-text-muted-active: rgba(255, 255, 255, 0.5);
+  --color-ready-bg: #4CAF50;
+  --color-ready-bg-hover: #45a049;
+  --color-not-ready-bg: #e0e0e0;
+  --color-not-ready-bg-hover: #d0d0d0;
+  --color-not-ready-text: #666;
+
+  /* Sizing & Spacing */
+  --spacing-base: 8px;
+  --spacing-medium: 10px;
+  --spacing-large: 20px;
+  
+  --card-width-hand: clamp(70px, 5.3vw, 100px);
+  --card-height-hand: clamp(100px, 16.7vh, 150px);
+  --card-width-table: clamp(50px, 4vw, 65px);
+  --card-height-table: clamp(75px, 6vw, 95px);
+
+  --table-center-size: clamp(290px, 25vw, 500px);
+
+  --card-overlap-ratio: 0.3;
+
+  /* --- Атомарные значения для расчета ширины карт в руке --- */
+    --card-width-hand-min: 70px;
+    --card-width-hand-ideal: 5.3vw;
+    --card-width-hand-max: 100px;
+
+    /* Теперь сама переменная --card-width-hand может использовать их для большей чистоты */
+    --card-width-hand: clamp(var(--card-width-hand-min), var(--card-width-hand-ideal), var(--card-width-hand-max));
+
+    /* --- Логические переменные для руки карт --- */
+    --hand-card-count: 6;
+    --hand-card-overlap-ideal: 4vw;
+    --hand-card-overlap-max: 40px; /* Максимальное наложение в пикселях */
+  
+  /* Borders */
+  --border-radius-small: 5px;
+  --border-radius-medium: 8px;
+  --border-radius-card: 6px;
+  --border-player-info: 25px 5px;
+
+  /* Z-Indexes */
+  --z-index-base: 0;
+  --z-index-table-area: 1;
+  --z-index-table-elements: 2;
+  --z-index-player-info: 3;
+  --z-index-card-slot: 4;
+  --z-index-modal: 100;
+  --z-index-debug: 1000;
+} 

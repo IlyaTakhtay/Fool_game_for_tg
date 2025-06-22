@@ -10,9 +10,9 @@
   
   /* Карта: ширина и высота адаптивные, перекрытие тоже адаптивное */
   .card-stack__card {
-    width: clamp(12px, 4vw, 65px);     /* min 40px, обычно 8vw, max 100px */
-    height: clamp(18px, 6vw, 96px);   /* min 60px, обычно 12vw, max 150px */
-    margin-left: calc(-1.75cqw); /* перекрытие зависит от ширины контейнера */
+    width: var(--card-width-table);
+    height: var(--card-height-table);
+    margin-left: calc(var(--card-width-hand) * var(--card-overlap-ratio) * -1);
     border-radius: 6px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     background: #fff;
@@ -53,12 +53,19 @@
     font-size: clamp(12px, 2vw, 20px);
   }
 
-
+  .card-stack--dense {
+    /* Задаём переменные */
+    --card-width: clamp(12px, 4vw, 65px);
+    /* Сколько пикселей от соседней карты должно быть видно? */
+    --card-visible-part: 0.2px; 
+  }
 
   .card-stack--dense .card-stack__card {
     position: relative;
     margin-top: 0;
-    margin-left: calc(-3.985cqw);
+    width: var(--card-width);
+    /* Вычисляем отступ: он равен полной ширине карты минус видимая часть */
+    margin-left: calc((var(--card-width) * -1) + var(--card-visible-part));
   }
   
   .card-stack--dense .card-stack__card:first-child {

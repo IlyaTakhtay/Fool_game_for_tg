@@ -56,8 +56,10 @@ class ExtraThrowActionMixin:
                     ) % len(self.game.players)
                     self.game.current_attacker_id = next_attacker
                     return StateResponse(
-                        ActionResult.SUCCESS,
-                        f"Ход игрока {player_input.player_id} пропущен. Ход переходит игроку {next_attacker.name}",
+                        result=ActionResult.SUCCESS,
+                        message=f"Ход игрока {player_input.player_id} пропущен. Ход переходит игроку {next_attacker.name}",
+                        next_state="DealState",
+                        data={"table": self.game.game_table.table_cards},
                     )
                 else:
                     return StateResponse(
@@ -82,8 +84,9 @@ class PlayRoundWithoutThrowState(GameState):
             Dict[str, Any]: Информация о входе в состояние атаки
         """
 
-        # Очищаем игровой стол перед новым раундом
+        # Очищаем игровой стол и статус раунда перед новым раундом
         self.game.game_table.clear_table()
+        self.game.round_defender_status = None
 
         return {
             "message": f"Ход игрока {self.game.current_attacker_id}. Выберите карту для атаки.",
@@ -114,121 +117,79 @@ class PlayRoundWithoutThrowState(GameState):
         # self.game.game_table.clear_table()
         return {
             "message": "Драка завершена.",
-            "table_cards": [str(card) for card in self.game.game_table.table_cards],
+            "table_cards": self.game.game_table.table_cards,
         }
 
     def handle_input(self, player_input: PlayerInput) -> StateResponse:
         """
         Обрабатывает ввод игрока в состоянии атаки
-
-        Args:
-            player_input: Входные данные об игроке
-
-        Returns:
-            StateResponse: Результат обработки ввода
         """
-        # Обработка выхода игрока
         if player_input.action == PlayerAction.QUIT:
             return self._handle_player_quit_action(player_input)
 
-        # Проверяем, что ход принадлежит атакующему или защищающемуся игроку
-        if (
-            player_input.player_id != self.game.current_attacker_id
-            and player_input.player_id != self.game.current_defender_id
-        ):
-            logger
+        attacker_id = self.game.current_attacker_id
+        defender_id = self.game.current_defender_id
+
+        # --- Pre-action validation ---
+        # Block any player who is not the current attacker or defender.
+        if player_input.player_id not in [attacker_id, defender_id]:
             return StateResponse(ActionResult.NOT_YOUR_TURN, "Сейчас не ваш ход.")
 
-        # Обработка атаки
-        if (
-            player_input.action == PlayerAction.ATTACK
-            and player_input.player_id == self.game.current_attacker_id
-        ):
-            state: StateResponse = self._check_attack_rules(player_input)
-            if state == ActionResult.SUCCESS:
-                # TODO: сделать так, чтобы это было только ПРИ ИГРЕ С ПОДБРАСЫВАНИЕМ
-                for player in self.game.players:
-                    if player.status == PlayerStatus.READY:
-                        player.status = PlayerStatus.UNREADY
-            return state
+        # If the defender has already decided to take cards, block any further actions from them.
+        is_defender_collecting = self.game.round_defender_status == PlayerAction.COLLECT
+        if is_defender_collecting and player_input.player_id == defender_id:
+            return StateResponse(ActionResult.INVALID_ACTION, "Вы уже решили взять карты, ожидайте паса от атакующего.")
 
-        # Обработка защиты
-        if (
-            player_input.action == PlayerAction.DEFEND
-            and player_input.player_id == self.game.current_defender_id
-        ):
-            action: PlayerAction = self._check_defend_rules(player_input)
-            if action == ActionResult.SUCCESS:
-                defender: Player = self.game.players[self.game.current_defender_idx]
-                if not self._is_defender_able_to_beat_more(
-                    defender_cards=defender.get_cards()
-                ):
-                    self.game.round_defender_status = PlayerAction.DEFEND
+        # --- Actions of the Attacker ---
+        if player_input.player_id == attacker_id:
+            if player_input.action == PlayerAction.ATTACK:
+                return self._check_attack_rules(player_input)
+
+            if player_input.action == PlayerAction.PASS:
+                if is_defender_collecting:
+                    # Attacker is done with throw-ins. Defender takes all cards.
+                    defender = self.game.get_player_by_id(defender_id)
+                    cards_to_take = self.game.game_table.get_all_cards()
+                    for card in cards_to_take:
+                        defender.add_card(card)
+                    self.game.game_table.clear_table()
+                    
                     return StateResponse(
-                        ActionResult.SUCCESS,
-                        "Игрок отбил все карты и больше не может отбивать.",
-                        "DealState",
-                        {
-                            "defender_id": self.game.current_defender_id,
-                            "defend_card": str(player_input.defend_card),
-                            "table_cards": [
-                                str(card) for card in self.game.game_table.table_cards
-                            ],
-                        },
+                        result=ActionResult.SUCCESS,
+                        message=f"Атака завершена. Защищающийся {defender_id} забирает карты.",
+                        next_state="DealState"
                     )
-            return action
-
-        # Обработка паса (пропуска хода) атакующим
-        if (
-            player_input.action == PlayerAction.PASS
-            and player_input.player_id == self.game.current_attacker_id
-        ):
-            # Пока защищающийся игрок не нажал COLLECT или не покрыл все карты, шлем INVALID ACTION
-            if (
-                not self._is_all_cards_defended()
-                or self.game.round_defender_status == PlayerAction.COLLECT
-            ):
-                return StateResponse(
-                    ActionResult.INVALID_ACTION,
-                    "Нельзя пасовать, пока защищающийся не отбил все карт ыили не пасанул сам",
-                )
-            else:
-                return self._extra_throw_action(player_input=player_input)
-
-        # Обработка сбора карт защищающимся
-        if (
-            player_input.action == PlayerAction.COLLECT
-            and player_input.player_id == self.game.current_defender_id
-        ):
-            try:
-                defender: Player = self.game.players[self.game.current_defender_idx]
-            except (TypeError, IndexError):
-                return StateResponse(
-                    ActionResult.INTERNAL_ERROR,
-                    "Ошибка при получении защищающегося игрока",
-                )
-            if defender.status != PlayerStatus.READY:
-                defender.status = PlayerStatus.READY
+                else:
+                    # Attacker passes, defender must have beaten all cards.
+                    if not self._is_all_cards_defended():
+                        return StateResponse(ActionResult.INVALID_ACTION, "Нельзя пасовать, пока защищающийся не отбил все карты.")
+                    
+                    self.game.round_defender_status = PlayerAction.DEFEND
+                    self.game.game_table.clear_table()
+                    return StateResponse(
+                        result=ActionResult.SUCCESS,
+                        message="Защищающийся отбился. Карты биты.",
+                        next_state="DealState"
+                    )
+        
+        # --- Actions of the Defender ---
+        # We know the defender is not in 'collecting' state here due to the check above.
+        if player_input.player_id == defender_id:
+            if player_input.action == PlayerAction.DEFEND:
+                return self._check_defend_rules(player_input)
+            
+            if player_input.action == PlayerAction.PASS:
+                if not self.game.game_table.table_cards:
+                    return StateResponse(ActionResult.INVALID_ACTION, "Нельзя пасовать, если на столе нет карт.")
+                
                 self.game.round_defender_status = PlayerAction.COLLECT
                 return StateResponse(
-                    ActionResult.SUCCESS,
-                    f"Игрок {defender.name} не может отбить и забирает карты.",
-                )
-            else:
-                return StateResponse(
-                    ActionResult.INVALID_ACTION, "Статус взятия карт уже установлен."
+                    result=ActionResult.SUCCESS,
+                    message="Защищающийся решил взять карты. Атакующий может подкинуть."
                 )
 
-        # Если действие не распознано
-        return StateResponse(ActionResult.INVALID_ACTION, "Действие не распознано.")
-
-    def _extra_throw_action(self, player_input: PlayerInput) -> StateResponse:
-        return StateResponse(
-            result=ActionResult.SUCCESS,
-            message=f"Последний закончил ход игрок {player_input.player_id}",
-            next_state="DealState",
-            data={"table": self.game.game_table.table_cards},
-        )
+        # This part of the code should not be reachable due to the initial checks.
+        return StateResponse(ActionResult.INVALID_ACTION, "Нераспознанное действие или неверный ход.")
 
     def _check_attack_rules(self, player_input: PlayerInput) -> StateResponse:
         # Проверка наличия карты для атаки
@@ -264,18 +225,21 @@ class PlayRoundWithoutThrowState(GameState):
                     "Эту карту нельзя подкинуть. Можно подкидывать только карты тех же достоинств, что уже есть на столе.",
                 )
 
-        # Проверка на то, что у игрока достаточно карт для защиты
-        try:
-            defender: Player = self.game.players[self.game.current_defender_idx]
-        except (TypeError, IndexError):
-            defender = None
-        if defender and not self._is_defender_able_to_beat_more(
-            defender_cards=defender.get_cards()
-        ):
-            return StateResponse(
-                ActionResult.TABLE_FULL,
-                "У защищающегося недостаточно карт для защиты ещё одной",
-            )
+        # Проверка на то, что у игрока достаточно карт для защиты / взятия
+        defender = self.game.get_player_by_id(self.game.current_defender_id)
+        if defender:
+            # If the defender is taking cards, the attacker can't throw in more cards than the defender has.
+            if self.game.round_defender_status == PlayerAction.COLLECT:
+                attack_cards_on_table = self.game.game_table._get_attack_cards()
+                if len(attack_cards_on_table) >= len(defender.get_cards()):
+                    return StateResponse(ActionResult.TABLE_FULL, "Нельзя подкинуть больше карт, чем есть у защищающегося.")
+            # If the defender is still playing, they must have enough cards to beat the new attack.
+            else:
+                 if not self._is_defender_able_to_beat_more(defender_cards=defender.get_cards()):
+                    return StateResponse(
+                        ActionResult.TABLE_FULL,
+                        "У защищающегося недостаточно карт для защиты ещё одной",
+                    )
 
         # Убираем карту у игрока из руки, потому что атака прошла успешно
         attacker.remove_card(player_input.attack_card)
@@ -287,8 +251,8 @@ class PlayRoundWithoutThrowState(GameState):
             {
                 "attacker_id": self.game.current_attacker_id,
                 "defender_id": self.game.current_defender_id,
-                "attack_card": str(player_input.attack_card),
-                "table_cards": [str(card) for card in self.game.game_table.table_cards],
+                "attack_card": player_input.attack_card,
+                "table_cards": self.game.game_table.table_cards,
             },
         )
 
@@ -305,6 +269,7 @@ class PlayRoundWithoutThrowState(GameState):
                 ActionResult.INTERNAL_ERROR, "Не найден игрок для защиты"
             )
         # Проверяем, что карта есть у игрока
+        defender = self.game.get_player_by_id(self.game.current_defender_id)
         if not defender or player_input.defend_card not in defender.get_cards():
             return StateResponse(ActionResult.INVALID_CARD, "У вас нет такой карты.")
 
@@ -336,8 +301,8 @@ class PlayRoundWithoutThrowState(GameState):
             None,
             {
                 "defender_id": self.game.current_defender_id,
-                "defend_card": str(player_input.defend_card),
-                "table_cards": [str(card) for card in self.game.game_table.table_cards],
+                "defend_card": player_input.defend_card,
+                "table_cards": self.game.game_table.table_cards,
             },
         )
 
@@ -436,7 +401,7 @@ class PlayRoundWithoutThrowState(GameState):
         return {
             "attacker_id": self.game.current_attacker_id,
             "defender_id": self.game.current_defender_id,
-            "table_cards": [str(card) for card in self.game.game_table.table_cards],
+            "table_cards": self.game.game_table.table_cards,
         }
 
     class PlayRoundWithThrowState(GameState, ExtraThrowActionMixin):

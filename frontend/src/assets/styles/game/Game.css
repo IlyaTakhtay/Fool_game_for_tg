@@ -1,78 +1,163 @@
+@import './variables.css';
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+.game {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--color-background-dark);
+}
+
 .card-table {
   position: relative;
   width: 100%;
-  height: 100vh;
-  background-color: #006400;
+  height: 100%;
+  background-color: var(--color-background-table);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  z-index: 0;
+  z-index: var(--z-index-base);
 }
 
-.table__center-area {
+.card-table__your-cards {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  gap: min(1vw, 15px);
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-medium);
+  box-sizing: border-box;
+  z-index: var(--z-index-table-elements);
+}
+
+/* Base card styles */
+.card--face,
+.card--back {
+  width: var(--card-width-hand);
+  height: var(--card-height-hand);
+  aspect-ratio: 2.5 / 3.5;
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+
+.card--face:hover {
+  transform: translateY(-15px) scale(1.05);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+  cursor: pointer;
+}
+
+.card--back {
+  background: url('assets/images/imperial_back.png');
+  overflow: overlay;
+  background-size: cover;
+  margin-left: min(-4vw, -40px);
+  padding: 0.5vh;
+}
+
+.card--back:first-child {
+  margin-left: 0;
+}
+
+.card--on-table {
+  width: var(--card-width-table);
+  height: var(--card-height-table);
+  cursor: default !important;
+  opacity: 0.95;
+  pointer-events: none; /* The slot will handle pointer events */
   position: absolute;
-  width: 290px;
-  height: 290px;
-  background-color: #2f4f2f;
-  border-radius: 5%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  text-align: center;
-  z-index: 1;
+  top: 0;
+  left: 0;
 }
 
-.table__played-cards {
-  display: flex;
-  flex-wrap: wrap;
-  /* Позволяет картам переходить на новую строку */
-  gap: 50px;
-  max-width: 290px;
-  /* Ширина для двух строк, можно подбирать */
-  justify-content: center;
-  color: white;
+.card--cover {
+  left: 20px !important;
+  top: 20px !important;
+  z-index: var(--z-index-table-elements);
 }
 
-
-.table__card {
-  width: 50px;
-  height: 70px;
-  background-color: #3a3f47;
-  border-radius: 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 80px;
-  margin: 0 5px;
-}
-
-
+/* Player info styles */
 .player__info {
-  background: brown;
-  border-radius: 25px 5px;
+  background: var(--color-background-player);
+  border-radius: var(--border-player-info);
   max-height: 45px;
+  max-width: 300px;
   position: relative;
   display: flex;
   align-items: center;
   flex-direction: row;
   justify-content: center;
-  gap: 1vw;
-  z-index: 3;
+  gap: min(1vw, 15px);
+  z-index: var(--z-index-player-info);
+  padding: var(--spacing-base) var(--spacing-medium);
+  background-color: var(--color-background-player);
+  overflow: hidden;
 }
 
-/* Стили для фотографии профиля */
+
+.player__info--attacker,
+.player__info--defender {
+  position: relative;
+}
+
+.player__info--attacker::before,
+.player__info--defender::before {
+  z-index: -1;
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.216); 
+  /* This is your white color with opacity */
+  pointer-events: none;
+  -webkit-mask-repeat: space;
+  mask-repeat: space;
+  -webkit-mask-position: center;
+  mask-position: center;
+}
+
+.player__info--attacker::before {
+  -webkit-mask-image: url('assets/images/sword.svg');
+  mask-image: url('assets/images/sword.svg');
+  -webkit-mask-size: 10px 10px;
+  mask-size: 10px 12px;
+  transform: rotate(-25deg);
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  scale: 3;
+}
+
+.player__info--defender::before {
+  -webkit-mask-image: url('assets/images/shield.svg');
+  mask-image: url('assets/images/shield.svg');
+  -webkit-mask-size: 10px 10px;
+  mask-size: 9px 12px;
+  transform: rotate(-25deg);
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  scale: 3;
+}
+
+.player__info--attacker {
+  background-image: none;
+}
+
+.player__info--defender {
+  background-image: none;
+}
+
 .player__profile-image {
   width: 35px;
-  /* Вы можете изменить размер под свои нужды */
   height: 35px;
   border-radius: 50%;
-  /* Делаем фото круглым */
-  background-color: #3a3f47;
+  background-color: var(--color-background-card-placeholder);
   transition: border 0.3s ease;
-  /* Плавный переход цвета рамки */
+  flex-shrink: 0;
 }
 
 .border-green {
@@ -83,103 +168,100 @@
   border: 2px solid red;
 }
 
-.player__cards {
-  display: flex;
-  justify-content: center;
-  /* Центрирует карты по горизонтали */
-  align-items: center;
-  /* Центрирует карты по вертикали */
-  flex-direction: row;
-  position: relative;
-}
-
-.card-table__your-cards {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  gap: 1vw;
-  background-color: rgba(0, 0, 0, 0.6);
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px;
-  box-sizing: border-box;
-  z-index: 2;
-}
-
-.card--face,
-.card--back {
-  width: 5.3vw;
-  /* Ширина карты будет 10% от ширины окна */
-  height: 16.7vh;
-  /* Высота карты будет 14% от высоты окна */
-  /* font-size: 8vw;   
-  background-color: #3a3f47;
-  border-radius: 5px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  cursor: grab;
-  padding: 0px 4px 15px 4px; */
-}
-
-
-.card--back {
-  background: url('assets/images/imperial_back.png');
-  /* Укажите путь к изображению задней стороны карты */
-  overflow: overlay;
-  background-size: cover;
-  /* Заполняет весь контейнер */
-  /* background-position: center; */
-  margin-left: -4vw;
-  /* Смещение карт */
-  padding: 0.5vh;
-  /* background-color: #50565e; */
-}
-
-.card--back:first-child {
-  margin-left: 0;
-  /* Для первой карты, чтобы не было смещения */
-}
-
-.card--on-table {
-  width: clamp(12px, 4vw, 65px);
-  height: clamp(18px, 6vw, 95px);
-  ;
-
-  cursor: default !important;
-  opacity: 0.95;
-  pointer-events: none;
-}
-
+/* Ready Button */
 .ready-button {
   position: fixed;
   bottom: 20px;
   right: 20px;
   padding: 12px 24px;
-  border-radius: 8px;
+  border-radius: var(--border-radius-medium);
   border: none;
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s ease;
-  background-color: #e0e0e0;
-  color: #666;
-  z-index: 1000;
+  background-color: var(--color-not-ready-bg);
+  color: var(--color-not-ready-text);
+  z-index: var(--z-index-debug);
 }
 
 .ready-button:hover {
-  background-color: #d0d0d0;
+  background-color: var(--color-not-ready-bg-hover);
   transform: scale(1.05);
 }
 
 .ready-button--active {
-  background-color: #4CAF50;
-  color: white;
+  background-color: var(--color-ready-bg);
+  color: var(--color-text-light);
 }
 
 .ready-button--active:hover {
-  background-color: #45a049;
+    background-color: var(--color-ready-bg-hover);
+}
+
+.pass-button {
+  background-color: #f39c12; /* A distinct orange color */
+  color: var(--color-text-light);
+}
+
+.pass-button:hover {
+  background-color: #e67e22;
+}
+
+.debug-info {
+    position: absolute;
+    top: 40px;
+    left: 10px;
+    color: var(--color-text-light);
+    font-size: 12px;
+    z-index: var(--z-index-debug);
+    text-shadow: 1px 1px 2px black;
+}
+
+/* Toast notifications customization */
+.Toastify__toast {
+  border-radius: 8px !important;
+  font-family: 'Roboto', sans-serif !important;
+  font-size: 14px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  backdrop-filter: blur(8px) !important;
+  background-color: rgba(0, 0, 0, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.Toastify__toast-body {
+  padding: 12px 16px !important;
+  line-height: 1.5 !important;
+  color: #fff !important;
+  font-weight: 500 !important;
+}
+
+/* Стили для разных типов ошибок */
+.Toastify__toast--error[data-error-code="INVALID_DEFENSE_SUIT"] {
+  border-left: 4px solid #e74c3c !important;
+}
+
+.Toastify__toast--error[data-error-code="WRONG_TURN_ACTION"] {
+  border-left: 4px solid #f39c12 !important;
+}
+
+.Toastify__toast--error[data-error-code="INTERNAL_ERROR"] {
+  border-left: 4px solid #c0392b !important;
+}
+
+.Toastify__progress-bar {
+  height: 3px !important;
+}
+
+.Toastify__progress-bar--error {
+  background: linear-gradient(to right, #e74c3c, #c0392b) !important;
+}
+
+.Toastify__close-button {
+  color: #fff !important;
+  opacity: 0.7 !important;
+  align-self: center !important;
+}
+
+.Toastify__close-button:hover {
+  opacity: 1 !important;
 }

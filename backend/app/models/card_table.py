@@ -1,6 +1,14 @@
-from typing import List, Dict
+from typing import List, Dict, Set
 
-from backend.app.models.card import Card, TrumpCard
+from backend.app.models.card import Card, TrumpCard, Rank
+from backend.app.utils.errors import (
+    InvalidDefenseError,
+    WeakDefenseError,
+    CardNotOnTableError,
+    InvalidThrowError,
+    CardAlreadyOnTableError,
+    NoFreeSlotsError,
+)
 
 class CardTable:
     def __init__(self) -> None:
@@ -33,31 +41,83 @@ class CardTable:
                 return i
         return None
 
+    def _get_table_ranks(self) -> Set[Rank]:
+        """Возвращает множество рангов карт на столе"""
+        ranks = set()
+        for pack in self.table_cards:
+            attack_card = pack.get('attack_card')
+            defend_card = pack.get('defend_card')
+            if attack_card:
+                ranks.add(attack_card.rank)
+            if defend_card:
+                ranks.add(defend_card.rank)
+        return ranks
+
     def clear_table(self) -> None:
         self.table_cards.clear()
 
-    def throw_card(self, card: Card) -> Dict|Exception:
-        """добавляет карту на стол"""
+    def validate_throw(self, card: Card) -> None:
+        """Проверяет возможность подкинуть карту"""
+        # Проверяем, не на столе ли уже карта
         all_cards = self._get_attack_cards() + self._get_defend_cards()
         if card in all_cards:
-            raise ValueError("This card is on table") #todo custom error
-        if (any(card.rank == table_card.rank for table_card in all_cards) 
-            or len(self.table_cards) == 0):
-            if self.slots > len(self.table_cards):
-                self.table_cards.append({"attack_card": card, "defend_card": None})
-                return {"status": "sucsess", "message": "sucsess"}
-            else:
-                {"status": "failed", "message": "no free slots"}
-        return {"status": "failed", "message": "wrong rank"}
+            raise CardAlreadyOnTableError(card)
+
+        # Проверяем, есть ли место на столе
+        if self.slots <= len(self.table_cards):
+            raise NoFreeSlotsError()
+
+        # Если стол не пустой, проверяем ранг
+        if self.table_cards:
+            table_ranks = self._get_table_ranks()
+            if card.rank not in table_ranks:
+                raise InvalidThrowError(str(card), [str(r) for r in table_ranks])
+
+    def throw_card(self, card: Card) -> Dict:
+        """Добавляет карту на стол"""
+        # Проверяем возможность подкинуть карту
+        self.validate_throw(card)
+        
+        # Если все проверки пройдены, добавляем карту
+        self.table_cards.append({"attack_card": card, "defend_card": None})
+        return {"status": "success", "message": "success"}
     
-    def cover_card(self, card: Card, cover_card: Card) -> bool|ValueError:
-        """Бьет карту на столе"""    
-        if cover_card > card:
-            idx = self._get_card_index(card)
-            if idx is not None:
-                self.table_cards[idx]['defend_card'] = cover_card
-                return True
-            else:
-                raise ValueError("This card not on table") #todo custom error
+    def validate_defense(self, attack_card: Card, defend_card: Card) -> None:
+        """Проверяет возможность защиты картой"""
+        # Проверяем, что атакующая карта на столе
+        if self._get_card_index(attack_card) is None:
+            raise CardNotOnTableError(attack_card)
+
+        # Проверяем масти
+        if defend_card.suit != attack_card.suit:
+            # Если защищающаяся карта не козырь - ошибка
+            if not isinstance(defend_card, TrumpCard):
+                raise InvalidDefenseError(attack_card=attack_card, defend_card=defend_card)
+        else:
+            # Если масти одинаковые, проверяем значение
+            if not defend_card > attack_card:
+                raise WeakDefenseError(attack_card=attack_card, defend_card=defend_card)
+
+    def cover_card(self, attack_card: Card, defend_card: Card) -> bool:
+        """Бьет карту на столе"""
+        # Проверяем возможность защиты
+        self.validate_defense(attack_card, defend_card)
+        
+        # Если все проверки пройдены, добавляем карту защиты
+        idx = self._get_card_index(attack_card)
+        if idx is not None:
+            self.table_cards[idx]['defend_card'] = defend_card
+            return True
+        
         return False
+
+    def get_all_cards(self) -> list[Card]:
+        """Возвращает все карты на столе (и атакующие, и защитные)."""
+        all_cards = []
+        for pair in self.table_cards:
+            if pair.get("attack_card"):
+                all_cards.append(pair["attack_card"])
+            if pair.get("defend_card"):
+                all_cards.append(pair["defend_card"])
+        return all_cards
 

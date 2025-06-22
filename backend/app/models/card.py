@@ -27,29 +27,30 @@ class Card:
     rank: Rank
     suit: Suit
 
-    def __gt__(self, another: Self):
+    def __gt__(self, another: Self) -> bool:
         if self.suit != another.suit:
-            return NotImplemented
+            return False
         return self.rank.value > another.rank.value
 
-    def __lt__(self, another: Self):
+    def __lt__(self, another: Self) -> bool:
         if self.suit != another.suit:
-            return NotImplemented
+            return False
         return self.rank.value < another.rank.value
 
-    def __eq__(self, another: object):
+    def __eq__(self, another: object) -> bool:
         if not isinstance(another, Card):
             return NotImplemented
         return (another.rank == self.rank) and (another.suit == self.suit)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.rank.name} of {self.suit.name}"
 
-    def to_dict(self):
-        return {"rank": self.rank, "suit": self.suit}
+    def to_dict(self) -> dict:
+        """Возвращает словарь, пригодный для JSON-сериализации."""
+        return {"rank": str(self.rank.value), "suit": self.suit.value}
 
     @staticmethod
-    def from_dict(data, trump_suit=None):
+    def from_dict(data: dict, trump_suit=None) -> 'Card':
         rank = data['rank']
         suit = data['suit']
         # Преобразуем rank
@@ -79,23 +80,30 @@ class Card:
 
 @dataclass(frozen=True)
 class TrumpCard(Card):
-
     def __gt__(self, another: Card) -> bool:
         if self.suit == another.suit:
             return self.rank.value > another.rank.value
+        if isinstance(another, TrumpCard):
+            return False
         return True
 
     def __ge__(self, another: Card) -> bool:
         if self.suit == another.suit:
             return self.rank.value >= another.rank.value
+        if isinstance(another, TrumpCard):
+            return False
         return True
 
     def __lt__(self, another: Card) -> bool:
         if self.suit == another.suit:
             return self.rank.value < another.rank.value
+        if isinstance(another, TrumpCard):
+            return True
         return False
 
     def __le__(self, another: Card) -> bool:
         if self.suit == another.suit:
             return self.rank.value <= another.rank.value
+        if isinstance(another, TrumpCard):
+            return True
         return False

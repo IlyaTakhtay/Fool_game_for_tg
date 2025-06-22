@@ -40,6 +40,11 @@ class FoolGame(Game):
         self.round_defender_status: PlayerAction | None = None
 
     @property
+    def current_state_name(self) -> str:
+        """Возвращает имя текущего состояния."""
+        return self._current_state.__class__.__name__
+
+    @property
     def current_attacker_idx(self) -> int | None:
         if self.current_attacker_id is not None:
             for i, player in enumerate(self.players):

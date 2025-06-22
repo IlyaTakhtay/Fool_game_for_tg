@@ -13,7 +13,6 @@ import asyncio
 from sse_starlette.sse import EventSourceResponse
 from fastapi.responses import JSONResponse
 import hashlib
-import ast
 
 from backend.api.managers.connection_managaer import ConnectionManager
 from backend.api.managers.game_manager import GameManager
@@ -35,6 +34,7 @@ from backend.api.models.websocket_models import (
     PlayerStatusData,
     ReconnectionData,
     ReconnectionResponse,
+    CardPlayedData,
     CardPlayedResponse,
 )
 from backend.app.contracts.game_contract import (
@@ -42,11 +42,17 @@ from backend.app.contracts.game_contract import (
     PlayerAction,
     PlayerInput,
     StateTransition,
+    StateResponse,
 )
 from backend.app.models.game import FoolGame
 from backend.app.models.player import Player, PlayerStatus
 from backend.app.utils.logger import setup_logger
 from backend.app.models.card import Card
+from backend.app.utils.errors import GameLogicError, WrongTurnError
+from starlette import status
+from starlette.websockets import WebSocketDisconnect
+
+from backend.app.config.settings import DEBUG  # Import the DEBUG setting
 
 router = APIRouter(prefix="/api/v1", tags=["Games"])
 game_manager_instance: GameManager = GameManager()
@@ -114,9 +120,7 @@ async def join_game(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Игра с указанным ID не найдена",
             )
-        if player_id in [
-            p.id_ for p in game.players
-        ]:  # Проверка существующего игрока
+        if player_id in [p.id_ for p in game.players]:  # Проверка существующего игрока
             raise HTTPException(status_code=409, detail="Вы уже подключились")
     else:
         game = gm.find_available_game() or gm.create_game(players_limit=2)
@@ -330,38 +334,36 @@ async def websocket_inout_resolve(
         f"Received WebSocket message from player {player_id} in game {game_id}: type={message_type}, data={message_data}"
     )
 
-    try:
-        match message_type:
-            case "player_connected":
-                logger.info(
-                    f"Handling player_connected for player {player_id} in game {game_id}"
-                )
-                await handle_player_connected(game_id, player_id, game, websocket)
+    match message_type:
+        case "player_connected":
+            logger.info(
+                f"Handling player_connected for player {player_id} in game {game_id}"
+            )
+            await handle_player_connected(game_id, player_id, game, websocket)
 
-            case "player_disconnected":
-                logger.info(
-                    f"Handling player_disconnected for player {player_id} in game {game_id}"
-                )
-                await handle_player_disconnected(game_id, player_id, game)
+        case "player_disconnected":
+            logger.info(
+                f"Handling player_disconnected for player {player_id} in game {game_id}"
+            )
+            await handle_player_disconnected(game_id, player_id, game)
 
-            case "change_status":
-                new_status = message_data.get("status")
-                logger.info(
-                    f"Handling change_status for player {player_id} in game {game_id}: new_status={new_status}"
-                )
-                await handle_player_status_changed(game_id, player_id, new_status, game)
+        case "change_status":
+            new_status = message_data.get("status")
+            logger.info(
+                f"Handling change_status for player {player_id} in game {game_id}: new_status={new_status}"
+            )
+            await handle_player_status_changed(game_id, player_id, new_status, game)
 
-            case "play_card":
-                await handle_play_card(game_id, player_id, game, websocket, data)
-            
-            case _:
-                logger.warning(
-                    f"Unknown message type: {message_type} from player {player_id} in game {game_id}"
-                )
-    except Exception as e:
-        logger.error(f"Error handling message: {str(e)}")
-        # Re-raise the exception to be handled by the main WebSocket handler
-        raise
+        case "play_card":
+            await handle_play_card(game_id, player_id, game, websocket, data)
+
+        case "pass_turn":
+            await handle_pass_turn(game_id, player_id, game)
+
+        case _:
+            logger.warning(
+                f"Unknown message type: {message_type} from player {player_id} in game {game_id}"
+            )
 
 
 async def handle_player_connected(
@@ -383,6 +385,7 @@ async def handle_player_connected(
     # Отправляем полное состояние игры
     full_state_response = ReconnectionResponse(
         data=ReconnectionData(
+            current_state=game.current_state_name,
             # PrivatePlayerData
             status=player.status,
             position=game.get_player_position(player_id),
@@ -413,7 +416,21 @@ async def handle_player_connected(
                 if game.current_defender_id
                 else -1
             ),
-            table_cards=[card.to_dict() for card in game.game_table.table_cards],
+            table_cards=[
+                {
+                    "attack_card": (
+                        c.get("attack_card").to_dict()
+                        if hasattr(c.get("attack_card"), "to_dict")
+                        else c.get("attack_card")
+                    ),
+                    "defend_card": (
+                        c.get("defend_card").to_dict()
+                        if hasattr(c.get("defend_card"), "to_dict")
+                        else c.get("defend_card")
+                    ),
+                }
+                for c in game.game_table.table_cards
+            ],
         )
     )
 
@@ -491,6 +508,7 @@ async def handle_player_status_changed(
             for p in game.players:
                 full_state_response = ReconnectionResponse(
                     data=ReconnectionData(
+                        current_state=game.current_state_name,
                         # PrivatePlayerData
                         status=p.status,
                         position=game.get_player_position(p.id_),
@@ -522,7 +540,19 @@ async def handle_player_status_changed(
                             else -1
                         ),
                         table_cards=[
-                            card.to_dict() for card in game.game_table.table_cards
+                            {
+                                "attack_card": (
+                                    c.get("attack_card").to_dict()
+                                    if hasattr(c.get("attack_card"), "to_dict")
+                                    else c.get("attack_card")
+                                ),
+                                "defend_card": (
+                                    c.get("defend_card").to_dict()
+                                    if hasattr(c.get("defend_card"), "to_dict")
+                                    else c.get("defend_card")
+                                ),
+                            }
+                            for c in game.game_table.table_cards
                         ],
                     )
                 )
@@ -535,7 +565,8 @@ async def handle_player_status_changed(
             logger.error(
                 f"Failed to change player status: {response.result}, {response.message}"
             )
-            raise Exception(response.message)
+            # Raise a specific, catchable error for game rule violations.
+            raise GameLogicError(message=response.message, error_code="INVALID_ACTION")
 
         # Создаем сообщение об изменении статуса
         status_response = PlayerStatusChangedResponse(
@@ -553,9 +584,11 @@ async def handle_player_status_changed(
             f"Player {player_id} status changed to {new_status} in game {game_id}"
         )
 
-    except Exception as e:
+    except (GameLogicError, Exception) as e:
         logger.error(f"Error handling player status change: {str(e)}", exc_info=True)
-        # Не закрываем соединение здесь, пусть это решает основной обработчик WebSocket
+        # Re-raise the exception so the main websocket handler can catch it
+        # and send a formatted error to the client.
+        raise
 
 
 @router.websocket("/ws/{game_id}")
@@ -587,7 +620,111 @@ async def websocket_game(
                 f"Raw WebSocket message received from player {player_id} in game {game_id}: {data}"
             )
 
-            await websocket_inout_resolve(data, game_id, player_id, game, websocket)
+            try:
+                await websocket_inout_resolve(data, game_id, player_id, game, websocket)
+            except GameLogicError as e:
+                # Для ошибок игровой логики отправляем сообщение об ошибке клиенту
+                error_response = {
+                    "type": MessageType.ERROR,
+                    "data": {
+                        "message": str(e),
+                        "code": getattr(e, "error_code", "GAME_LOGIC_ERROR"),
+                    },
+                }
+                logger.info(f"Game logic error: {error_response}")
+                await websocket.send_json(error_response)
+
+                # После ошибки отправляем актуальное состояние игры
+                player = next((p for p in game.players if p.id_ == player_id), None)
+                if player:
+                    # Преобразуем trump_suit и trump_rank в строки
+                    trump_suit_str = (
+                        str(game.deck.trump_suit.value)
+                        if game.deck.trump_suit
+                        else None
+                    )
+                    trump_rank_str = (
+                        str(game.deck.trump_card.rank.value)
+                        if game.deck.trump_card
+                        else None
+                    )
+
+                    state_response = ReconnectionResponse(
+                        data=ReconnectionData(
+                            current_state=game.current_state_name,
+                            # PrivatePlayerData
+                            status=player.status,
+                            position=game.get_player_position(player_id),
+                            cards=[card.to_dict() for card in player.get_cards()],
+                            # PublicGameData
+                            room_size=game.players_limit,
+                            room_players=[
+                                PublicPlayerData(
+                                    player_id=p.id_,
+                                    position=game.get_player_position(p.id_),
+                                    cards_count=len(p.get_cards()),
+                                    status=getattr(p, "status", PlayerStatus.UNREADY),
+                                    name=p.name,
+                                )
+                                for p in game.players
+                                if p.id_ != player_id
+                            ],
+                            deck_size=len(game.deck),
+                            trump_suit=trump_suit_str,
+                            trump_rank=trump_rank_str,
+                            attacker_position=(
+                                game.get_player_position(game.current_attacker_id)
+                                if game.current_attacker_id
+                                else -1
+                            ),
+                            defender_position=(
+                                game.get_player_position(game.current_defender_id)
+                                if game.current_defender_id
+                                else -1
+                            ),
+                            table_cards=[
+                                {
+                                    "attack_card": (
+                                        c.get("attack_card").to_dict()
+                                        if hasattr(c.get("attack_card"), "to_dict")
+                                        else c.get("attack_card")
+                                    ),
+                                    "defend_card": (
+                                        c.get("defend_card").to_dict()
+                                        if hasattr(c.get("defend_card"), "to_dict")
+                                        else c.get("defend_card")
+                                    ),
+                                }
+                                for c in game.game_table.table_cards
+                            ],
+                        )
+                    )
+                    await websocket.send_json(state_response.model_dump())
+                continue  # Продолжаем слушать следующие сообщения
+            except Exception as e:
+                logger.error(f"Unexpected error for player {player_id} in game {game_id}: {str(e)}", exc_info=True)
+
+                if DEBUG:
+                    # In development, send detailed error information
+                    error_message = str(e)
+                    error_code = e.__class__.__name__
+                else:
+                    # In production, send a generic, non-revealing message
+                    error_message = "An unexpected error occurred."
+                    error_code = "UNEXPECTED_ERROR"
+
+                error_response = {
+                    "type": MessageType.ERROR,
+                    "data": {
+                        "message": error_message,
+                        "code": error_code,
+                    },
+                }
+                await websocket.send_json(error_response)
+                # We also might want to send full game state here to restore client state
+                # We might not want to raise and disconnect for every background error,
+                # so we will log it and continue.
+                # If the error is critical, the client will disconnect eventually.
 
     except WebSocketDisconnect:
         # Удаляем соединение при отключении
@@ -607,102 +744,223 @@ async def handle_play_card(
 ):
     card_data = data.get("attack_card")
     if not card_data:
-        raise HTTPException(status_code=400, detail="attack_card is required")
+        raise GameLogicError(message="Не указана карта для хода", error_code="CARD_REQUIRED")
 
     defend_card_data = data.get("defend_card")
 
-    # Логируем только базовую информацию о ходе
-    logger.info(f"handle_play_card: player_id={player_id}, attack_card={card_data}, defend_card={defend_card_data}")
-    player = game.get_player_by_id(player_id)
-    if player:
-        logger.info(f"Карты игрока {player_id} ДО хода: {[str(c) for c in player.get_cards()]}")
-    else:
-        logger.warning(f"Игрок {player_id} не найден для логирования карт")
-
-    trump_suit = game.deck.trump_suit
-    if defend_card_data:
-        action = PlayerAction.DEFEND
-        player_input = PlayerInput(
-            player_id=player_id,
-            action=action,
-            attack_card=Card.from_dict(card_data, trump_suit=trump_suit),
-            defend_card=Card.from_dict(defend_card_data, trump_suit=trump_suit)
-        )
-    else:
-        action = PlayerAction.ATTACK
-        player_input = PlayerInput(
-            player_id=player_id,
-            action=action,
-            attack_card=Card.from_dict(card_data, trump_suit=trump_suit)
-        )
-
-    logger.info(f"Тип карты для хода: {type(player_input.attack_card)} {player_input.attack_card}")
-
     try:
+        # Проверяем роль игрока
+        is_attacker = game.current_attacker_id == player_id
+        is_defender = game.current_defender_id == player_id
+
+        # Определяем тип действия
+        is_attack_action = not defend_card_data
+        is_defense_action = bool(defend_card_data)
+
+        # Проверяем корректность действия относительно роли
+        if is_attack_action and not is_attacker:
+            if is_defender:
+                raise WrongTurnError(
+                    current_role="защищающийся", attempted_action="атаковать"
+                )
+            else:
+                raise WrongTurnError(
+                    current_role="наблюдатель", attempted_action="атаковать"
+                )
+        elif is_defense_action and not is_defender:
+            if is_attacker:
+                raise WrongTurnError(
+                    current_role="атакующий", attempted_action="защищаться"
+                )
+            else:
+                raise WrongTurnError(
+                    current_role="наблюдатель", attempted_action="защищаться"
+                )
+
+        # Логируем только базовую информацию о ходе
+        logger.info(
+            f"handle_play_card: player_id={player_id}, attack_card={card_data}, defend_card={defend_card_data}"
+        )
+        player = game.get_player_by_id(player_id)
+        if player:
+            logger.info(
+                f"Карты игрока {player_id} ДО хода: {[str(c) for c in player.get_cards()]}"
+            )
+        else:
+            logger.warning(f"Игрок {player_id} не найден для логирования карт")
+            raise GameLogicError(message="Игрок не найден", error_code="PLAYER_NOT_FOUND")
+
+        trump_suit = game.deck.trump_suit
+        try:
+            if defend_card_data:
+                action = PlayerAction.DEFEND
+                player_input = PlayerInput(
+                    player_id=player_id,
+                    action=action,
+                    attack_card=Card.from_dict(card_data, trump_suit=trump_suit),
+                    defend_card=Card.from_dict(defend_card_data, trump_suit=trump_suit),
+                )
+            else:
+                action = PlayerAction.ATTACK
+                player_input = PlayerInput(
+                    player_id=player_id,
+                    action=action,
+                    attack_card=Card.from_dict(card_data, trump_suit=trump_suit),
+                )
+        except (ValueError, KeyError, TypeError) as e:
+            logger.error(f"Ошибка при создании карты: {str(e)}")
+            raise GameLogicError(message=f"Неверный формат карты: {str(e)}", error_code="INVALID_CARD_FORMAT")
+
+        logger.info(
+            f"Тип карты для хода: {type(player_input.attack_card)} {player_input.attack_card}"
+        )
+
         answer = game.handle_input(player_input)
         # Логируем карты игрока после хода
         if player:
-            logger.info(f"Карты игрока {player_id} ПОСЛЕ хода: {[str(c) for c in player.get_cards()]}")
-        if answer.result == ActionResult.ROOM_FULL:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT, detail=answer.message
+            logger.info(
+                f"Карты игрока {player_id} ПОСЛЕ хода: {[str(c) for c in player.get_cards()]}"
             )
-        elif answer.result == ActionResult.INVALID_ACTION:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=answer.message
-            )
-        elif answer.result != ActionResult.SUCCESS:
-            logger.error(f"Ошибка при выполнении хода: {answer.message}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=answer.message
-            )
-    except Exception as e:
-        logger.error(f"Ошибка при выполнении хода: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+
+        if answer.result != ActionResult.SUCCESS:
+            # Вместо HTTP исключений используем GameLogicError
+            error_message = answer.message
+            if answer.result == ActionResult.ROOM_FULL:
+                raise GameLogicError(message=error_message, error_code="ROOM_FULL")
+            elif answer.result == ActionResult.INVALID_ACTION:
+                raise GameLogicError(message=error_message, error_code="INVALID_ACTION")
+            else:
+                logger.error(f"Ошибка при выполнении хода: {error_message}")
+                raise GameLogicError(message=error_message, error_code="PLAY_CARD_ERROR")
+
+        # Get the player's new card count
+        player = game.get_player_by_id(player_id)
+        new_cards_count = len(player.get_cards()) if player else 0
+
+        # Serialize cards in the response data
+        response_data = answer.data.copy() if answer.data else {}
+        # Сериализуем attack_card/defend_card если есть
+        if "attack_card" in response_data and hasattr(response_data["attack_card"], "to_dict"):
+            response_data["attack_card"] = response_data["attack_card"].to_dict()
+        if "defend_card" in response_data and hasattr(response_data["defend_card"], "to_dict"):
+            response_data["defend_card"] = response_data["defend_card"].to_dict()
+        # Сериализуем table_cards если есть
+        if "table_cards" in response_data:
+
+            def serialize_card(card):
+                return card.to_dict() if hasattr(card, "to_dict") else card
+
+            response_data["table_cards"] = [
+                (
+                    {
+                        "attack_card": serialize_card(pair.get("attack_card")),
+                        "defend_card": serialize_card(pair.get("defend_card")),
+                    }
+                    if isinstance(pair, dict)
+                    else serialize_card(pair)
+                )
+                for pair in response_data["table_cards"]
+            ]
+
+        # Create the structured response payload
+        card_played_data = CardPlayedData(
+            player_id=player_id,
+            cards_count=new_cards_count,
+            table_cards=response_data.get("table_cards", []),
+            attack_card=response_data.get("attack_card"),
+            defend_card=response_data.get("defend_card"),
+            attacker_id=response_data.get("attacker_id"),
+            defender_id=response_data.get("defender_id"),
+        )
+        
+        response = CardPlayedResponse(
+            data=card_played_data,
         )
 
-    # Сериализация карт в answer.data перед отправкой
-    data = answer.data.copy() if answer.data else {}
-    # Сериализуем attack_card/defend_card если есть
-    if "attack_card" in data and hasattr(data["attack_card"], "to_dict"):
-        data["attack_card"] = data["attack_card"].to_dict()
-    if "defend_card" in data and hasattr(data["defend_card"], "to_dict"):
-        data["defend_card"] = data["defend_card"].to_dict()
-    # Сериализуем table_cards если есть
-    if "table_cards" in data:
-        def serialize_card_pair(pair):
-            # Если это строка, парсим в dict
-            if isinstance(pair, str):
-                try:
-                    pair = ast.literal_eval(pair)
-                except Exception:
-                    return pair
-            if isinstance(pair, dict):
-                def ser(card):
-                    if hasattr(card, "to_dict"):
-                        return card.to_dict()
-                    return card
-                return {
-                    "attack_card": ser(pair.get("attack_card")),
-                    "defend_card": ser(pair.get("defend_card")),
-                }
-            return pair
-        data["table_cards"] = [serialize_card_pair(pair) for pair in data["table_cards"]]
+        response_json = response.model_dump()
+        logger.info(
+            f"WEBSOCKET SEND CARD_PLAYED: game_id={game_id}, player_id={player_id}, response_json={response_json}"
+        )
+        
+        # Broadcast the same structured message to all players
+        all_player_ids = [p.id_ for p in game.players]
+        await connection_manager_instance.broadcast_to_players(
+            all_player_ids, response_json
+        )
 
-    response = CardPlayedResponse(
-        data=data,
-        type=MessageType.CARD_PLAYED,
-    )
-    response_json = response.model_dump()
-    logger.info(f"WEBSOCKET SEND CARD_PLAYED: game_id={game_id}, player_id={player_id}, response_json={response_json}")
-    await websocket.send_json(response_json)
+        logger.info(f"Ход {player_id} в игре {game_id} выполнен успешно")
+    except (GameLogicError, WrongTurnError) as e:
+        # Пробрасываем ошибки игровой логики дальше для обработки в основном обработчике
+        raise
+    except Exception as e:
+        # Все остальные ошибки конвертируем в GameLogicError
+        logger.error(f"Неожиданная ошибка при обработке хода: {str(e)}", exc_info=True)
+        raise GameLogicError(message=f"Ошибка при обработке хода: {str(e)}", error_code="UNEXPECTED_PLAY_CARD_ERROR")
 
-    # Уведомляем других игроков о ходе
-    other_player_ids = [p.id_ for p in game.players if p.id_ != player_id]
-    await connection_manager_instance.broadcast_to_players(
-        other_player_ids, response.model_dump()
-    )
 
-    logger.info(f"Ход {player_id} в игре {game_id} выполнен успешно")
+# Create a new handler function for passing
+async def handle_pass_turn(game_id: str, player_id: str, game: FoolGame):
+    """Handles a player's request to pass their turn."""
+    logger.info(f"Handling pass_turn for player {player_id} in game {game_id}")
+
+    player_input = PlayerInput(player_id=player_id, action=PlayerAction.PASS)
+    answer = game.handle_input(player_input)
+
+    # Determine if the action was successful. A state transition is always a success.
+    is_successful_action = isinstance(answer, StateTransition) or \
+                          (isinstance(answer, StateResponse) and answer.result == ActionResult.SUCCESS)
+
+    if is_successful_action:
+        logger.info(f"Pass action by {player_id} was successful. Broadcasting full game state.")
+        # The game state has changed, broadcast the new state to all players.
+        for p in game.players:
+            full_state_response = ReconnectionResponse(
+                data=ReconnectionData(
+                    current_state=game.current_state_name,
+                    status=p.status,
+                    position=game.get_player_position(p.id_),
+                    cards=[card.to_dict() for card in p.get_cards()],
+                    room_size=game.players_limit,
+                    room_players=[
+                        PublicPlayerData(
+                            player_id=other_p.id_,
+                            position=game.get_player_position(other_p.id_),
+                            cards_count=len(other_p.get_cards()),
+                            status=getattr(other_p, "status", PlayerStatus.UNREADY),
+                            name=other_p.name,
+                        )
+                        for other_p in game.players
+                        if other_p.id_ != p.id_
+                    ],
+                    deck_size=len(game.deck),
+                    trump_suit=game.deck.trump_suit,
+                    trump_rank=game.deck.trump_card.rank if game.deck.trump_card else None,
+                    attacker_position=(
+                        game.get_player_position(game.current_attacker_id)
+                        if game.current_attacker_id else -1
+                    ),
+                    defender_position=(
+                        game.get_player_position(game.current_defender_id)
+                        if game.current_defender_id else -1
+                    ),
+                    table_cards=[
+                        {
+                            "attack_card": pair.get("attack_card").to_dict() if pair.get("attack_card") else None,
+                            "defend_card": pair.get("defend_card").to_dict() if pair.get("defend_card") else None,
+                        }
+                        for pair in game.game_table.table_cards
+                    ],
+                )
+            )
+            await connection_manager_instance.send_message(
+                p.id_, full_state_response.model_dump()
+            )
+        return
+    
+    # If the action was not successful, it must be a StateResponse with an error.
+    if isinstance(answer, StateResponse):
+        raise GameLogicError(message=answer.message, error_code="INVALID_PASS_ACTION")
+    else:
+        # This path should not be reachable. Log an error if it is.
+        logger.error(f"handle_pass_turn received unexpected object type: {type(answer)}")
+        raise GameLogicError(message="An unexpected error occurred while processing the pass action.", error_code="INTERNAL_SERVER_ERROR")

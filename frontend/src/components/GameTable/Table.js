@@ -1,29 +1,38 @@
 import React from 'react';
 import Card from './Card';
+import 'assets/styles/game/Table.css';
 
-function Table({ playedCards, onDrop, onDragOver }) {
-  console.log('Table render playedCards:', playedCards);
+function Table({ playedCards, onDrop, onDragOver, isDefender, isAttacker }) {
+  const hasCardsOnTable = playedCards && playedCards.length > 0;
+  
+  // The dropzone for attacking should always be available for the attacker,
+  // but we can hide the instructional text if cards are already on the table.
+  const showAttackDropZone = isAttacker;
+
   return (
     <div className="table__center-area">
-      {/* Drop-зона для новой атаки (если нужно) */}
-      <div
-        className="table__new-attack-dropzone"
-        onDrop={e => onDrop(e, null)}
-        onDragOver={onDragOver}
-        style={{ minHeight: 40, marginBottom: 8, border: '1px dashed #aaa', textAlign: 'center', color: '#888' }}
-      >
-        Кинуть новую карту на стол
-      </div>
+      {showAttackDropZone && (
+        <div
+          className="table__new-attack-dropzone table__new-attack-dropzone--active"
+          onDrop={(e) => onDrop(e, null)}
+          onDragOver={onDragOver}
+        >
+          {!hasCardsOnTable && 'Бросить карту'}
+        </div>
+      )}
+
       <div className="table__played-cards">
         {playedCards && playedCards.map((pair, idx) => {
           if (!pair || !pair.base) return null;
+          
+          const canDropOnThisCard = isDefender && !pair.cover;
+          
           return (
             <div
               key={`${pair.base.rank}-${pair.base.suit}-${idx}`}
-              className="table-card-slot"
-              onDrop={pair.cover ? undefined : (e) => onDrop(e, pair.base)}
-              onDragOver={pair.cover ? undefined : onDragOver}
-              style={{ position: 'relative', display: 'inline-block', margin: 8 }}
+              className={`table-card-slot ${canDropOnThisCard ? 'table-card-slot--can-drop' : ''}`}
+              onDrop={canDropOnThisCard ? (e) => onDrop(e, pair.base) : undefined}
+              onDragOver={canDropOnThisCard ? onDragOver : undefined}
             >
               <Card
                 card={pair.base}
@@ -35,12 +44,6 @@ function Table({ playedCards, onDrop, onDragOver }) {
                   card={pair.cover}
                   draggable={false}
                   className="card--face card--on-table card--cover"
-                  style={{
-                    position: 'absolute',
-                    left: 20,
-                    top: 20,
-                    zIndex: 2
-                  }}
                 />
               )}
             </div>

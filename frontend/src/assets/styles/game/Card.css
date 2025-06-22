@@ -1,18 +1,19 @@
 .card-svg {
-    width: clamp(12px, 4vw, 65px);
-    height: clamp(18px, 6vw, 95px);;
+    width: var(--card-width-table);
+    /* height: var(--card-height-table); */
 }
 
 .deck__trump-card {
-    width: clamp(12px, 4vw, 65px);
-    height: clamp(18px, 6vw, 96px);
-    border-radius: 6px;
+    width: var(--card-width-table);
+    /* height: var(--card-height-table); */
+    border-radius: var(--border-radius-card);
     transform: rotate(90deg);
     position: relative;
     left: 50%;
   }
+
 .deck__trump-suit {
     position: relative;
     left: 150%;
-    width: 3.3vw;
+    width: calc(var(--card-width-table) * 0.95);
 }

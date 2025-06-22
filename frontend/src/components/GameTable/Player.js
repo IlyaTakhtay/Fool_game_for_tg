@@ -4,8 +4,14 @@ import CardStack from 'components/GameTable/CardStack';
 import backImage from "assets/images/imperial_back.png"; // путь к рубашке
 import 'assets/styles/game/Player.css';
 
-function Player({ player, className }) {
+function Player({ player, className, isAttacker, isDefender }) {
   const statusClass = player.status === 'ready' ? 'border-green' : 'border-red';
+
+  const infoClassName = [
+    'player__info',
+    isAttacker ? 'player__info--attacker' : '',
+    isDefender ? 'player__info--defender' : ''
+  ].filter(Boolean).join(' ');
 
   // Функция для обрезки имени до 16 символов
   const truncateName = (name) => {
@@ -14,7 +20,7 @@ function Player({ player, className }) {
 
   return (
     <div className={className}>
-      <div className="player__info">
+      <div className={infoClassName}>
         <div className={`player__profile ${statusClass}`}>
           <img
             src={player.profileImage || backImage}

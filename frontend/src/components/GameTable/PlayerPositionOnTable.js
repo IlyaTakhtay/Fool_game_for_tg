@@ -12,12 +12,16 @@ function fromAbsoluteToLocalPosition(position, maxPositions, myPosition) {
 export default function PlayerPositionsOnTable({
     players,
     maxPositions = 6,
-    currentPlayerPosition
+    currentPlayerPosition,
+    attackerPosition,
+    defenderPosition
 }) {
     console.log('PlayerPositionsOnTable received:', {
         players,
         maxPositions,
-        currentPlayerPosition
+        currentPlayerPosition,
+        attackerPosition,
+        defenderPosition
     });
     // Сортируем игроков по локальным позициям
     const sortedPlayers = [...players].sort((a, b) =>
@@ -34,12 +38,17 @@ export default function PlayerPositionsOnTable({
                     currentPlayerPosition
                 );
 
+                const isAttacker = player.position === attackerPosition;
+                const isDefender = player.position === defenderPosition;
+
                 return (
                     <Player
                         key={player.id}
                         player={player}
                         className={`player player--${localPosition + 1}`}
                         isCurrent={player.position === currentPlayerPosition}
+                        isAttacker={isAttacker}
+                        isDefender={isDefender}
                     />
                 );
             })}

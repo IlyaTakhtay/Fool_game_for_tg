@@ -1,0 +1,89 @@
+.table__center-area {
+  position: absolute;
+  width: var(--table-center-size);
+  height: var(--table-center-size);
+  background-color: var(--color-background-table-center);
+  border-radius: 5%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-light);
+  text-align: center;
+  z-index: var(--z-index-table-area);
+  overflow: hidden;
+}
+
+.table__played-cards {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-large);
+  padding: var(--spacing-medium);
+  box-sizing: border-box;
+  max-width: 100%;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+  z-index: var(--z-index-table-elements);
+}
+
+.table-card-slot {
+  position: relative;
+  width: var(--card-width-table);
+  height: var(--card-height-table);
+  /* This element is now sized and will be the drop target */
+  pointer-events: all;
+  z-index: var(--z-index-card-slot);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.table-card-slot--can-drop {
+  cursor: pointer;
+  outline: 2px dashed var(--color-text-muted);
+  outline-offset: -4px;
+  border-radius: var(--border-radius-card);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.table__new-attack-dropzone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  pointer-events: all;
+  z-index: 3; /* Kept above played-cards but below slots */
+}
+
+.table__new-attack-dropzone--active {
+  color: var(--color-text-muted-active);
+  /* border: 2px dashed var(--color-text-muted-active); */
+  border-radius: 5%;
+}
+
+/* This class is no longer used to hide the element, just the text */
+.table__new-attack-dropzone--hidden {
+  color: transparent; /* Hide text */
+  border-color: transparent; /* Hide border if any */
+}
+
+.table__card {
+  width: clamp(50px, 5vw, 70px);
+  height: clamp(70px, 7vw, 100px);
+  background-color: #3a3f47;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 80px;
+  margin: 0 5px;
+} 

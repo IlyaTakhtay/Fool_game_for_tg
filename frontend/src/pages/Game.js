@@ -10,6 +10,8 @@ import DiscardDeck from 'components/GameTable/DiscardDeck';
 import Card from '../components/GameTable/Card';
 import { getCardSvgPath } from 'utils/cardSvgLinker';
 import 'assets/styles/game/Game.css';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // Импорт моков (для fallback)
 import { mockGameScenarios } from '../mocks/gameMocks';
@@ -37,7 +39,7 @@ function Game() {
     tableCards: isUsingMocks ? currentScenario.tableCards : [],
     deckSize: isUsingMocks ? currentScenario.deckCount : 0,
     trumpSuit: isUsingMocks ? currentScenario.trumpSuit : '',
-    gamePhase: 'waiting',
+    gamePhase: 'LobbyState',
     playerStatus: 'waiting'
   });
 
@@ -107,139 +109,329 @@ function Game() {
     }
   }, [gameState.playerStatus, sendPlayerReady, sendPlayerNotReady]);
 
+  const handlePassClick = useCallback(() => {
+    sendWebSocketMessage({ type: 'pass_turn' });
+  }, [sendWebSocketMessage]);
+
+  const isInLobby = gameState.gamePhase === 'LobbyState';
+
   // Обработка входящих WebSocket сообщений
   const handleWebSocketMessage = useCallback((event) => {
-    const message = JSON.parse(event.data);
-    const currentPlayerId = sessionStorage.getItem("playerId");
+    try {
+      const rawMessage = event.data;
+      console.log('Raw WebSocket message:', rawMessage);
+      
+      const message = JSON.parse(event.data);
+      const currentPlayerId = sessionStorage.getItem("playerId");
 
-    switch (message.type) {
-      case "connection_confirmed":
-        console.log('Received game state:', {
-          deckSize: message.data.deck_size,
-          trumpSuit: message.data.trump_suit,
-          trumpRank: message.data.trump_rank,
-          fullMessage: message.data
-        });
+      // Логируем каждое сообщение в самом начале
+      console.log('🔵 Received WebSocket message:', {
+        type: message.type,
+        data: message.data,
+        currentPlayerId,
+        messagePlayerId: message.data?.player_id,
+        hasStateInfo: !!message.data?.state_info,
+        stateInfo: message.data?.state_info,
+        attackerId: message.data?.attacker_id,
+        defenderId: message.data?.defender_id,
+        stateInfoAttackerId: message.data?.state_info?.attacker_id,
+        stateInfoDefenderId: message.data?.state_info?.defender_id,
+        phase: message.data?.phase,
+        currentState: message.data?.current_state
+      });
 
-        // Находим текущего игрока и его статус
-        const currentPlayer = message.data.room_players?.find(
-          p => p.player_id === sessionStorage.getItem('playerId')
-        );
-        console.log('Статус игрока при подключении:', {
-          playerId: currentPlayerId,
-          status: currentPlayer?.status,
-          isCurrentPlayer: !!currentPlayer
-        });
+      switch (message.type) {
+        case "error":
+          // Показываем toast с ошибкой
+          const errorCode = message.data.code || "INTERNAL_ERROR";
+          toast.error(message.data.message, {
+            position: "top-right",
+            autoClose: 3000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            progress: undefined,
+            theme: "dark",
+            toastId: errorCode, // Предотвращает дублирование одинаковых ошибок
+            className: `game-error-toast-${errorCode.toLowerCase()}`,
+            data: {
+              'error-code': errorCode
+            }
+          });
+          break;
 
-        const playerStatus = currentPlayer?.status || 'not_ready';
-        setGameState((prev) => {
-          const newState = {
-            ...prev,
-            yourCards: message.data.cards || [],
-            players: (message.data.room_players || []).map(player => ({
-              id: player.player_id,
-              name: player.name,
-              cards: player.cards_count,
-              position: player.position,
-              status: player.status
-            })),
-            deckSize: message.data.deck_size,
-            trumpSuit: message.data.trump_suit,
-            trumpRank: message.data.trump_rank,
+        case "connection_confirmed":
+          console.log('🟢 Connection confirmed:', {
+            message: message.data,
+            state_info: message.data.state_info,
+            current_state: message.data.current_state,
+            attacker_position: message.data.attacker_position,
+            defender_position: message.data.defender_position,
+            room_players: message.data.room_players,
+            current_position: message.data.position
+          });
+
+          // Определяем роли по позициям
+          const isCurrentPlayerAttacker = message.data.position === message.data.attacker_position;
+          const isCurrentPlayerDefender = message.data.position === message.data.defender_position;
+          
+          // Находим игроков по позициям
+          const attackerFromPlayers = isCurrentPlayerAttacker 
+            ? { player_id: currentPlayerId, position: message.data.position }
+            : message.data.room_players?.find(p => p.position === message.data.attacker_position);
+
+          const defenderFromPlayers = isCurrentPlayerDefender
+            ? { player_id: currentPlayerId, position: message.data.position }
+            : message.data.room_players?.find(p => p.position === message.data.defender_position);
+
+          // Определяем ID атакующего и защищающегося
+          const attackerId = attackerFromPlayers?.player_id;
+          const defenderId = defenderFromPlayers?.player_id;
+
+          console.log('🟢 Role determination:', {
+            currentPlayerId,
+            currentPosition: message.data.position,
             attackerPosition: message.data.attacker_position,
             defenderPosition: message.data.defender_position,
-            tableCards: (message.data.table_cards || []).map(pair => ({
-              base: pair.attack_card,
-              cover: pair.defend_card || null
-            })),
-            playerStatus: playerStatus
-          };
-          console.log('Обновлено состояние игры:', {
-            trumpSuit: newState.trumpSuit,
-            trumpRank: newState.trumpRank,
-            deckSize: newState.deckSize,
-            playerStatus: newState.playerStatus,
-            allPlayersStatuses: newState.players.map(p => ({ id: p.id, status: p.status }))
+            attackerId,
+            defenderId,
+            isAttacker: isCurrentPlayerAttacker,
+            isDefender: isCurrentPlayerDefender,
+            totalPlayers: message.data.room_players?.length + 1, // +1 for current player
+            allPositions: [
+              message.data.position,
+              ...(message.data.room_players?.map(p => p.position) || [])
+            ].sort()
           });
-          return newState;
-        });
-        break;
 
-      case 'card_played':
-        console.log('CARD_PLAYED message received:', message.data);
-        console.log('CARD_PLAYED table_cards:', message.data.table_cards);
-        setGameState(prev => ({
-          ...prev,
-          tableCards: (message.data.table_cards || []).map(pair => ({
-            base: pair.attack_card,
-            cover: pair.defend_card || null
-          })),
-          attackerId: message.data.attacker_id,
-          defenderId: message.data.defender_id,
-        }));
-        break;
+          const playerStatus = message.data.status || 'not_ready';
+          setGameState((prev) => {
+            // Создаем полный список игроков, включая текущего
+            const allPlayers = [
+              // Текущий игрок
+              {
+                id: currentPlayerId,
+                name: `Player ${currentPlayerId}`,
+                cards: message.data.cards?.length || 0,
+                position: message.data.position,
+                status: playerStatus
+              },
+              // Остальные игроки
+              ...(message.data.room_players || []).map(player => ({
+                id: player.player_id,
+                name: player.name,
+                cards: player.cards_count,
+                position: player.position,
+                status: player.status
+              }))
+            ].sort((a, b) => a.position - b.position); // Сортируем по позициям
 
-      case 'player_joined':
-        setGameState(prev => {
-          const existingPlayerIndex = prev.players.findIndex(p => p.id === message.data.player_id);
-          const updatedPlayers = existingPlayerIndex >= 0
-            ? prev.players.map((p, index) => index === existingPlayerIndex
-              ? { ...p, status: message.data.status, cards: message.data.cards_count, position: message.data.position }
-              : p)
-            : [...prev.players, {
-              id: message.data.player_id,
-              name: message.data.name,
-              status: message.data.status,
-              cards: message.data.cards_count,
-              position: message.data.position
-            }];
-          return { ...prev, players: updatedPlayers };
-        });
-        break;
+            const newState = {
+              ...prev,
+              yourCards: message.data.cards || [],
+              players: allPlayers,
+              deckSize: message.data.deck_size,
+              trumpSuit: message.data.trump_suit,
+              trumpRank: message.data.trump_rank,
+              attackerPosition: message.data.attacker_position,
+              defenderPosition: message.data.defender_position,
+              current_attacker_id: attackerId,
+              current_defender_id: defenderId,
+              player_id: currentPlayerId,
+              player_position: message.data.position,
+              tableCards: (message.data.table_cards || []).map(pair => ({
+                base: pair.attack_card,
+                cover: pair.defend_card || null
+              })),
+              playerStatus: playerStatus,
+              gamePhase: message.data.current_state || 'LobbyState',
+              isAttacker: isCurrentPlayerAttacker,
+              isDefender: isCurrentPlayerDefender
+            };
 
-      case 'player_disconnected':
-        console.log('Игрок отключился:', message.data);
-        setGameState(prev => ({
-          ...prev,
-          players: prev.players.filter(p => p.id !== message.data.player_id)
-        }));
-        break;
+            console.log('🟢 Updated game state:', {
+              trumpSuit: newState.trumpSuit,
+              trumpRank: newState.trumpRank,
+              deckSize: newState.deckSize,
+              playerStatus: newState.playerStatus,
+              currentAttackerId: newState.current_attacker_id,
+              currentDefenderId: newState.current_defender_id,
+              playerId: newState.player_id,
+              playerPosition: newState.player_position,
+              isAttacker: newState.isAttacker,
+              isDefender: newState.isDefender,
+              currentState: newState.gamePhase
+            });
 
-      case 'player_status':
-      case 'player_status_changed':
-        console.log('Получено изменение статуса игрока:', {
-          playerId: message.data.player_id,
-          newStatus: message.data.status,
-          isCurrentPlayer: message.data.player_id === currentPlayerId,
-          currentGameState: gameState.playerStatus
-        });
+            return newState;
+          });
+          break;
 
-        setGameState(prev => ({
-          ...prev,
-          players: prev.players.map(p =>
-            p.id === message.data.player_id
-              ? { ...p, status: message.data.status }
-              : p
-          ),
-          ...(message.data.player_id === currentPlayerId ? { playerStatus: message.data.status } : {})
-        }));
-        break;
+        case 'card_played':
+          console.log('Card played - full data:', {
+            message: message.data,
+            state_info: message.data.state_info,
+            attacker_id: message.data.attacker_id,
+            defender_id: message.data.defender_id,
+            state_info_attacker: message.data.state_info?.attacker_id,
+            state_info_defender: message.data.state_info?.defender_id
+          });
+          console.log('CARD_PLAYED table_cards:', message.data.table_cards);
 
-      case 'game_phase_changed':
-        console.log('Фаза игры изменена:', {
-          newPhase: message.data.phase,
-          currentPlayerStatus: gameState.playerStatus
-        });
-        setGameState(prev => ({
-          ...prev,
-          gamePhase: message.data.phase
-        }));
-        // Показываем кнопку готовности только в лобби
-        setShowReadyButton(message.data.phase === 'LobbyState');
-        break;
+          setGameState(prev => {
+            // Find the player who played the card and update their card count
+            const updatedPlayers = prev.players.map(p => {
+              if (p.id === message.data.player_id) {
+                return { ...p, cards: message.data.cards_count };
+              }
+              return p;
+            });
 
-      default:
-        console.warn('Неизвестный тип сообщения:', message.type);
+            // Optimistically update the current player's hand if they are the one who played
+            let updatedYourCards = prev.yourCards;
+            if (message.data.player_id === prev.player_id) {
+                const playedCard = message.data.defend_card || message.data.attack_card;
+                if(playedCard) {
+                    updatedYourCards = prev.yourCards.filter(
+                        c => !(c.rank === playedCard.rank && c.suit === playedCard.suit)
+                    );
+                }
+            }
+
+            const newState = {
+              ...prev,
+              players: updatedPlayers,
+              yourCards: updatedYourCards,
+              tableCards: (message.data.table_cards || []).map(pair => ({
+                base: pair.attack_card,
+                cover: pair.defend_card || null
+              })),
+              current_attacker_id: message.data.current_state === 'LobbyState'
+                ? message.data.state_info?.attacker_id
+                : message.data.attacker_id,
+              current_defender_id: message.data.current_state === 'LobbyState'
+                ? message.data.state_info?.defender_id
+                : message.data.defender_id,
+              gamePhase: message.data.current_state || prev.gamePhase,
+            };
+            console.log('Updated game state after card played:', {
+              currentAttackerId: newState.current_attacker_id,
+              currentDefenderId: newState.current_defender_id,
+              playerId: prev.player_id,
+              isDefender: newState.current_defender_id === prev.player_id,
+              currentState: newState.gamePhase
+            });
+            return newState;
+          });
+          break;
+
+        case 'player_joined':
+          setGameState(prev => {
+            const existingPlayerIndex = prev.players.findIndex(p => p.id === message.data.player_id);
+            const updatedPlayers = existingPlayerIndex >= 0
+              ? prev.players.map((p, index) => index === existingPlayerIndex
+                ? { ...p, status: message.data.status, cards: message.data.cards_count, position: message.data.position }
+                : p)
+              : [...prev.players, {
+                id: message.data.player_id,
+                name: message.data.name,
+                status: message.data.status,
+                cards: message.data.cards_count,
+                position: message.data.position
+              }];
+            return { ...prev, players: updatedPlayers };
+          });
+          break;
+
+        case 'player_disconnected':
+          console.log('Игрок отключился:', message.data);
+          setGameState(prev => ({
+            ...prev,
+            players: prev.players.filter(p => p.id !== message.data.player_id)
+          }));
+          break;
+
+        case 'player_status':
+        case 'player_status_changed':
+          console.log('Player status changed - full data:', {
+            message: message.data,
+            state_info: message.data.state_info,
+            attacker_id: message.data.attacker_id,
+            defender_id: message.data.defender_id,
+            state_info_attacker: message.data.state_info?.attacker_id,
+            state_info_defender: message.data.state_info?.defender_id
+          });
+
+          setGameState(prev => ({
+            ...prev,
+            players: prev.players.map(p =>
+              p.id === message.data.player_id
+                ? { ...p, status: message.data.status }
+                : p
+            ),
+            ...(message.data.player_id === currentPlayerId ? { playerStatus: message.data.status } : {})
+          }));
+          break;
+
+        case 'game_phase_changed':
+          console.log('🟡 Game phase changed:', {
+            message: message.data,
+            phase: message.data.phase,
+            state_info: message.data.state_info,
+            attacker_position: message.data.attacker_position,
+            defender_position: message.data.defender_position
+          });
+
+          setGameState(prev => {
+            const isCurrentPlayerAttacker = prev.player_position === message.data.attacker_position;
+            const isCurrentPlayerDefender = prev.player_position === message.data.defender_position;
+            
+            // Находим игроков по позициям из полного списка
+            const attackerFromPlayers = prev.players.find(p => p.position === message.data.attacker_position);
+            const defenderFromPlayers = prev.players.find(p => p.position === message.data.defender_position);
+
+            const newState = {
+              ...prev,
+              gamePhase: message.data.phase,
+              showReadyButton: message.data.phase === 'LobbyState',
+              ...(message.data.phase === 'PlayRoundWithoutThrowState' && {
+                current_attacker_id: attackerFromPlayers?.id,
+                current_defender_id: defenderFromPlayers?.id,
+                attackerPosition: message.data.attacker_position,
+                defenderPosition: message.data.defender_position,
+                isAttacker: isCurrentPlayerAttacker,
+                isDefender: isCurrentPlayerDefender
+              }),
+            };
+
+            console.log('🟡 Game state after phase change:', {
+              phase: newState.gamePhase,
+              currentAttackerId: newState.current_attacker_id,
+              currentDefenderId: newState.current_defender_id,
+              playerId: newState.player_id,
+              playerPosition: newState.player_position,
+              attackerPosition: newState.attackerPosition,
+              defenderPosition: newState.defenderPosition,
+              isAttacker: newState.isAttacker,
+              isDefender: newState.isDefender,
+              allPlayers: prev.players.map(p => ({
+                id: p.id,
+                position: p.position,
+                isAttacker: p.position === message.data.attacker_position,
+                isDefender: p.position === message.data.defender_position
+              }))
+            });
+
+            return newState;
+          });
+          break;
+
+        default:
+          console.log('Unknown message type:', message.type, message.data);
+      }
+    } catch (error) {
+      console.error('Ошибка парсинга WebSocket сообщения:', error);
     }
   }, []);
 
@@ -410,82 +602,92 @@ function Game() {
   }
 
   return (
-    <div className="card-table">
-      <ConnectionStatus status={connectionStatus} isUsingMocks={isUsingMocks} />
+    <div className="game">
+      <ToastContainer
+        limit={3} // Максимальное количество уведомлений одновременно
+        newestOnTop={true}
+      />
+      <div className="card-table">
+        <ConnectionStatus status={connectionStatus} isUsingMocks={isUsingMocks} />
 
-      {/* Добавляем отладочную информацию */}
-      {process.env.NODE_ENV === 'development' && (
-        <div style={{ position: 'absolute', top: '40px', left: '10px', color: 'white', fontSize: '12px', zIndex: 1000 }}>
-          <div>Trump Suit: {gameState.trumpSuit || 'not set'}</div>
-          <div>Trump Rank: {gameState.trumpRank || 'not set'}</div>
-          <div>Deck Size: {gameState.deckSize}</div>
+        {/* Добавляем отладочную информацию */}
+        {process.env.NODE_ENV === 'development' && (
+          <div style={{ position: 'absolute', top: '40px', left: '10px', color: 'white', fontSize: '12px', zIndex: 1000 }}>
+            <div>Trump Suit: {gameState.trumpSuit || 'not set'}</div>
+            <div>Trump Rank: {gameState.trumpRank || 'not set'}</div>
+            <div>Deck Size: {gameState.deckSize}</div>
+          </div>
+        )}
+
+        {/* Кнопка готовности всегда видна */}
+        <button
+          onClick={isInLobby ? handleReadyClick : handlePassClick}
+          className={`ready-button ${!isInLobby ? 'pass-button' : (gameState.playerStatus === 'ready' ? 'ready-button--active' : '')}`}
+        >
+          {isInLobby ? (gameState.playerStatus === 'ready' ? 'Не готов' : 'Готов') : 'Пас'}
+        </button>
+
+        {/* Показываем статус готовности других игроков */}
+        <PlayerPositionsOnTable
+          players={gameState.players.filter(p => p.id !== gameState.player_id)}
+          maxPositions={isUsingMocks ? 6 : 6}
+          currentPlayerPosition={gameState.player_position}
+          showStatus={showReadyButton} // Показываем статусы только в лобби
+          attackerPosition={gameState.attackerPosition}
+          defenderPosition={gameState.defenderPosition}
+        />
+
+        <Table
+          playedCards={gameState.tableCards}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          isDefender={gameState.isDefender}
+          isAttacker={gameState.isAttacker}
+        />
+
+        <DeckWithTrump
+          count={gameState.deckSize}
+          backImage={backImage}
+          trumpCardImage={gameState.trumpSuit && gameState.trumpRank ?
+            getCardSvgPath({
+              rank: gameState.trumpRank,
+              suit: gameState.trumpSuit.toLowerCase() === 'd' ? 'diamonds' :
+                gameState.trumpSuit.toLowerCase() === 'h' ? 'hearts' :
+                  gameState.trumpSuit.toLowerCase() === 's' ? 'spades' :
+                    gameState.trumpSuit.toLowerCase() === 'c' ? 'clubs' :
+                      gameState.trumpSuit
+            }) :
+            backImage}
+          trumpSuit={gameState.trumpSuit}
+        />
+        {/* Добавляем лог после рендера DeckWithTrump */}
+        {console.log('DeckWithTrump props:', {
+          count: gameState.deckSize,
+          trumpSuit: gameState.trumpSuit,
+          trumpRank: gameState.trumpRank,
+          trumpCardImage: gameState.trumpSuit && gameState.trumpRank ?
+            getCardSvgPath({ rank: gameState.trumpRank, suit: gameState.trumpSuit }) :
+            'backImage'
+        })}
+
+        <DiscardDeck
+          cardImage={require('assets/images/imperial_back.png')}
+          count={calculateDiscardCount()}
+          height={145}
+          width={200}
+        />
+
+        <div className="card-table__your-cards">
+          {gameState.yourCards.map((card) => (
+            <Card
+              key={`${card.rank}-${card.suit}`}
+              card={card}
+              onDragStart={(e) => handleDragStart(e, card)}
+              draggable
+              className="card--face"
+            />
+          ))}
         </div>
-      )}
-
-      {/* Кнопка готовности всегда видна */}
-      <button
-        onClick={handleReadyClick}
-        className={`ready-button ${gameState.playerStatus === 'ready' ? 'ready-button--active' : ''}`}
-      >
-        {gameState.playerStatus === 'ready' ? 'Не готов' : 'Готов'}
-      </button>
-
-      {/* Показываем статус готовности других игроков */}
-      <PlayerPositionsOnTable
-        players={gameState.players}
-        maxPositions={isUsingMocks ? 6 : 6}
-        currentPlayerPosition={isUsingMocks ? 4 : 4}
-        showStatus={showReadyButton} // Показываем статусы только в лобби
-      />
-
-      <Table
-        playedCards={gameState.tableCards}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-      />
-
-      <DeckWithTrump
-        count={gameState.deckSize}
-        backImage={backImage}
-        trumpCardImage={gameState.trumpSuit && gameState.trumpRank ?
-          getCardSvgPath({
-            rank: gameState.trumpRank,
-            suit: gameState.trumpSuit.toLowerCase() === 'd' ? 'diamonds' :
-              gameState.trumpSuit.toLowerCase() === 'h' ? 'hearts' :
-                gameState.trumpSuit.toLowerCase() === 's' ? 'spades' :
-                  gameState.trumpSuit.toLowerCase() === 'c' ? 'clubs' :
-                    gameState.trumpSuit
-          }) :
-          backImage}
-        trumpSuit={gameState.trumpSuit}
-      />
-      {/* Добавляем лог после рендера DeckWithTrump */}
-      {console.log('DeckWithTrump props:', {
-        count: gameState.deckSize,
-        trumpSuit: gameState.trumpSuit,
-        trumpRank: gameState.trumpRank,
-        trumpCardImage: gameState.trumpSuit && gameState.trumpRank ?
-          getCardSvgPath({ rank: gameState.trumpRank, suit: gameState.trumpSuit }) :
-          'backImage'
-      })}
-
-      <DiscardDeck
-        cardImage={require('assets/images/imperial_back.png')}
-        count={calculateDiscardCount()}
-        height={145}
-        width={200}
-      />
-
-      <div className="card-table__your-cards">
-        {gameState.yourCards.map((card) => (
-          <Card
-            key={`${card.rank}-${card.suit}`}
-            card={card}
-            onDragStart={(e) => handleDragStart(e, card)}
-            draggable
-            className="card--face"
-          />
-        ))}
       </div>
     </div>
   );
