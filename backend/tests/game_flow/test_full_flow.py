@@ -7,9 +7,7 @@ from backend.app.models.game import FoolGame
 from backend.app.contracts.game_contract import PlayerInput, PlayerAction, ActionResult
 from backend.app.models.card import Card, Suit, Rank, TrumpCard
 from backend.app.models.player import Player, PlayerStatus
-from backend.app.utils.logger import setup_logger
 
-logger = setup_logger(__name__, log_file="logs/debug.log", level=logging.DEBUG)
 
 
 @pytest.fixture

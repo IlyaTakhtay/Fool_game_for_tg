@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Dict, List, Any, Optional
 from typing import TYPE_CHECKING
+import logging
 
 if TYPE_CHECKING:
     from backend.app.models.game import FoolGame
@@ -13,7 +14,12 @@ from backend.app.contracts.game_contract import (
     PlayerAction,
     ActionResult,
     StateResponse,
+    StateTransition,
 )
+from backend.app.models.card import Card, Rank, Suit
+
+
+logger = logging.getLogger(__name__)
 
 
 class LobbyState(GameState):

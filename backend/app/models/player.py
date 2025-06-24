@@ -1,9 +1,11 @@
+import logging
 from typing import Set, Optional
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
 from backend.app.models.card import TrumpCard, Card, Suit, Rank  # TODO: fix path
-from backend.app.utils.logger import setup_logger
+
+logger = logging.getLogger(__name__)
 
 
 class PlayerStatus(Enum):  # TODO: check statuses
@@ -42,19 +44,12 @@ class Player:
 
     def remove_card(self, card: Card) -> None:
         """Удалить карту из руки"""
-        print("!!! remove_card CALLED !!!")
-        logger = setup_logger("remove_card_logger")
-        logger.info(f"Trying to remove card: {card} (rank={card.rank} id={id(card.rank)} type={type(card.rank)}), (suit={card.suit} id={id(card.suit)} type={type(card.suit)}) from hand:")
-        for c in self._hand:
-            logger.info(f"  Card in hand: {c} (rank={c.rank} id={id(c.rank)} type={type(c.rank)}), (suit={c.suit} id={id(c.suit)} type={type(c.suit)})")
-            logger.info(f"    card == c: {card == c}, card is c: {card is c}, hash(card): {hash(card)}, hash(c): {hash(c)}")
-            logger.info(f"    card.rank module: {card.rank.__module__}, c.rank module: {c.rank.__module__}")
-            logger.info(f"    card.suit module: {card.suit.__module__}, c.suit module: {c.suit.__module__}")
-        if card in self._hand:
+        try:
             self._hand.remove(card)
-            logger.info("Card removed successfully!")
-        else:
-            logger.error("Card not found in hand!")
+        except KeyError:
+            logger.error(
+                f"Карта {card} не найдена в руке у игрока {self.id_}", exc_info=False
+            )
             raise ValueError("Card is not in hand")
 
     def clear_hand(self) -> None:

@@ -28,7 +28,6 @@ function GamesList() {
       const joinGameData = await api.post(
         `/join_game?player_id=${playerId}&game_id=${gameId}`
       );
-      console.log('Join game response:', joinGameData);
       navigate(`${ROUTES.GAME.replace(':game_id', gameId)}`, {
         state: { websocket: joinGameData.websocketConnection },
       });
@@ -53,13 +52,11 @@ function GamesList() {
     const connectSSE = () => {
       // Не устанавливаем соединение, если компонент размонтирован
       if (!isMounted) {
-        console.log('Component is unmounted, skipping SSE connection');
         return;
       }
 
       // Проверяем наличие player_id
       const playerId = sessionStorage.getItem('playerId');
-      console.log('Attempting SSE connection with player_id:', playerId);
 
       if (!playerId) {
         console.error('No player_id found in sessionStorage');
@@ -69,26 +66,22 @@ function GamesList() {
 
       // Закрываем предыдущее соединение, если оно существует
       if (eventSource) {
-        console.log('Closing existing SSE connection');
         eventSource.close();
         eventSource = null;
       }
 
       try {
         const sseUrl = `${API_BASE_URL}/api/v1/games/stream?player_id=${playerId}`;
-        console.log('Opening new SSE connection to:', sseUrl);
-
         eventSource = new EventSource(sseUrl);
 
         eventSource.onopen = () => {
-          console.log('SSE connection opened successfully');
+          // SSE connection opened successfully
         };
 
         eventSource.onmessage = (event) => {
           // Проверяем, что компонент все еще смонтирован
           if (!isMounted) return;
 
-          console.log('Received SSE message:', event.data);
           const gamesList = JSON.parse(event.data);
           const parsedGames = gamesList.map((game) => ({
             id: game.game_id,
@@ -106,14 +99,12 @@ function GamesList() {
         eventSource.onerror = (error) => {
           console.error('SSE Error:', error);
           if (eventSource) {
-            console.log('Closing SSE connection due to error');
             eventSource.close();
             eventSource = null;
           }
 
           // Пробуем переподключиться через 5 секунд только если компонент все еще смонтирован
           if (isMounted) {
-            console.log('Scheduling reconnection attempt in 5 seconds');
             if (reconnectTimeout) {
               clearTimeout(reconnectTimeout);
             }
@@ -124,13 +115,11 @@ function GamesList() {
         // Добавляем обработчик для ping событий
         eventSource.addEventListener('ping', () => {
           if (!isMounted) return;
-          console.log('Ping received from server');
         });
 
         // Добавляем обработчик для games_update событий
         eventSource.addEventListener('games_update', (event) => {
           if (!isMounted) return;
-          console.log('Received games update:', event.data);
           const gamesList = JSON.parse(event.data);
           const parsedGames = gamesList.map((game) => ({
             id: game.game_id,
@@ -147,7 +136,6 @@ function GamesList() {
 
         // Добавляем обработчик для закрытия соединения
         eventSource.addEventListener('close', (event) => {
-          console.log('Server requested SSE connection close:', event.data);
           if (eventSource) {
             eventSource.close();
             eventSource = null;
@@ -160,12 +148,10 @@ function GamesList() {
     };
 
     // Устанавливаем соединение при монтировании
-    console.log('GamesList component mounted, initializing SSE connection');
     connectSSE();
 
     // Функция очистки при размонтировании
     return () => {
-      console.log('GamesList component unmounting, cleaning up SSE connection');
       isMounted = false;  // Помечаем компонент как размонтированный
 
       // Очищаем таймаут переподключения
@@ -176,7 +162,6 @@ function GamesList() {
 
       // Закрываем соединение
       if (eventSource) {
-        console.log('Closing SSE connection');
         eventSource.close();
         eventSource = null;
       }

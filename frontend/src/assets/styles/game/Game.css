@@ -41,14 +41,50 @@
   width: var(--card-width-hand);
   height: var(--card-height-hand);
   aspect-ratio: 2.5 / 3.5;
-  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center bottom;
+  will-change: transform;
+  user-select: none;
+  touch-action: none;
 }
 
 .card--face:hover {
-  transform: translateY(-15px) scale(1.05);
-  box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-  cursor: pointer;
+  transform: translateY(-20px) scale(1.1);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.4);
+  cursor: grab;
+  z-index: 10;
 }
+
+.card--face:active {
+  cursor: grabbing;
+}
+
+.card--face.dragging {
+  position: fixed !important;
+  pointer-events: none;
+  z-index: 1000;
+  transform: rotate(5deg) scale(1.1);
+  box-shadow: 0 20px 32px rgba(0,0,0,0.5);
+  transition: none;
+}
+
+/* 1. Готовим дроп-зоны к плавной анимации */
+.table-card-slot {
+  transition: filter 0.3s ease-out;
+}
+.table__new-attack-dropzone {
+  transition: box-shadow 0.3s ease-out;
+}
+
+.table-card-slot.drop-zone--active-hover {
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.8));
+}
+
+.table__new-attack-dropzone.drop-zone--active-hover {
+  box-shadow: inset 0 0 15px 5px rgba(255, 255, 255, 0.7);
+}
+
+
 
 .card--back {
   background: url('assets/images/imperial_back.png');
@@ -67,16 +103,29 @@
   height: var(--card-height-table);
   cursor: default !important;
   opacity: 0.95;
-  pointer-events: none; /* The slot will handle pointer events */
+  pointer-events: none;
   position: absolute;
   top: 0;
   left: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .card--cover {
   left: 20px !important;
   top: 20px !important;
   z-index: var(--z-index-table-elements);
+  animation: coverCard 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes coverCard {
+  from {
+    transform: translateY(-100px) rotate(-10deg);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) rotate(0);
+    opacity: 1;
+  }
 }
 
 /* Player info styles */

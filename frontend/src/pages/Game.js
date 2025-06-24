@@ -5,15 +5,13 @@ import ConnectionStatus from 'components/UI/ConnectionStatus';
 import Table from '../components/GameTable/Table';
 import PlayerPositionsOnTable from 'components/GameTable/PlayerPositionOnTable';
 import DeckWithTrump from 'components/GameTable/Deck';
-import backImage from "assets/images/imperial_back.png";
+import backImage from 'assets/images/imperial_back.png';
 import DiscardDeck from 'components/GameTable/DiscardDeck';
 import Card from '../components/GameTable/Card';
 import { getCardSvgPath } from 'utils/cardSvgLinker';
 import 'assets/styles/game/Game.css';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
-// Импорт моков (для fallback)
 import { mockGameScenarios } from '../mocks/gameMocks';
 
 const TOTAL_DECK_CARDS = 36;
@@ -22,14 +20,11 @@ function Game() {
   const { game_id } = useParams();
   const location = useLocation();
   const websocketUrl = location.state?.websocket;
-  // const websocketUrl = null;
   const ws = useRef(null);
 
-  // WebSocket состояние
   const [connectionStatus, setConnectionStatus] = useState('Connecting');
   const [isUsingMocks, setIsUsingMocks] = useState(!websocketUrl);
 
-  // Игровое состояние
   const scenario = 'midGame';
   const currentScenario = mockGameScenarios[scenario];
 
@@ -41,52 +36,35 @@ function Game() {
     trumpSuit: isUsingMocks ? currentScenario.trumpSuit : '',
     gamePhase: 'LobbyState',
     playerStatus: 'waiting',
-    yourAllowedActions: []
+    yourAllowedActions: [],
   });
 
-  // Добавляем состояние для отображения кнопки готовности
   const [showReadyButton, setShowReadyButton] = useState(true);
 
-  // Отправка сообщений через WebSocket
   const sendWebSocketMessage = useCallback((message) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
-      console.log('Отправляем WebSocket сообщение:', message);
       ws.current.send(JSON.stringify(message));
     } else {
       console.warn('WebSocket не подключен, сообщение не отправлено:', message);
     }
   }, []);
 
-  // Функции для отправки конкретных сообщений
   const sendPlayerReady = useCallback(() => {
-    console.log('Отправляем статус готовности');
     sendWebSocketMessage({
       type: 'change_status',
-      data: {
-        player_id: sessionStorage.getItem('playerId'),
-        status: 'ready'
-      }
+      data: { player_id: sessionStorage.getItem('playerId'), status: 'ready' },
     });
   }, [sendWebSocketMessage]);
 
   const sendPlayerNotReady = useCallback(() => {
-    console.log('Отправляем статус не готовности');
     sendWebSocketMessage({
       type: 'change_status',
-      data: {
-        player_id: sessionStorage.getItem('playerId'),
-        status: 'not_ready'
-      }
+      data: { player_id: sessionStorage.getItem('playerId'), status: 'not_ready' },
     });
   }, [sendWebSocketMessage]);
 
-  // Обработчики для кнопки готовности
   const handleReadyClick = useCallback(() => {
     const isCurrentlyReady = gameState.playerStatus === 'ready';
-    console.log('Нажата кнопка готовности:', {
-      currentStatus: gameState.playerStatus,
-      willBecomeReady: !isCurrentlyReady
-    });
     if (!isCurrentlyReady) {
       sendPlayerReady();
     } else {
@@ -98,36 +76,13 @@ function Game() {
     sendWebSocketMessage({ type: 'pass_turn' });
   }, [sendWebSocketMessage]);
 
-  const isInLobby = gameState.gamePhase === 'LobbyState';
-
-  // Обработка входящих WebSocket сообщений
   const handleWebSocketMessage = useCallback((event) => {
     try {
-      const rawMessage = event.data;
-      console.log('Raw WebSocket message:', rawMessage);
-      
       const message = JSON.parse(event.data);
       const currentPlayerId = sessionStorage.getItem("playerId");
 
-      // Логируем каждое сообщение в самом начале
-      console.log('🔵 Received WebSocket message:', {
-        type: message.type,
-        data: message.data,
-        currentPlayerId,
-        messagePlayerId: message.data?.player_id,
-        hasStateInfo: !!message.data?.state_info,
-        stateInfo: message.data?.state_info,
-        attackerId: message.data?.attacker_id,
-        defenderId: message.data?.defender_id,
-        stateInfoAttackerId: message.data?.state_info?.attacker_id,
-        stateInfoDefenderId: message.data?.state_info?.defender_id,
-        phase: message.data?.phase,
-        currentState: message.data?.current_state
-      });
-
       switch (message.type) {
         case "error":
-          // Показываем toast с ошибкой
           const errorCode = message.data.code || "INTERNAL_ERROR";
           toast.error(message.data.message, {
             position: "top-right",
@@ -138,63 +93,30 @@ function Game() {
             draggable: true,
             progress: undefined,
             theme: "dark",
-            toastId: errorCode, // Предотвращает дублирование одинаковых ошибок
+            toastId: errorCode,
             className: `game-error-toast-${errorCode.toLowerCase()}`,
-            data: {
-              'error-code': errorCode
-            }
+            data: { 'error-code': errorCode },
           });
           break;
 
         case "connection_confirmed":
-          console.log('🟢 Connection confirmed:', {
-            message: message.data,
-            state_info: message.data.state_info,
-            current_state: message.data.current_state,
-            attacker_position: message.data.attacker_position,
-            defender_position: message.data.defender_position,
-            room_players: message.data.room_players,
-            current_position: message.data.position
-          });
-
-          // Определяем роли по позициям
           const isCurrentPlayerAttacker = message.data.position === message.data.attacker_position;
           const isCurrentPlayerDefender = message.data.position === message.data.defender_position;
           
-          // Находим игроков по позициям
           const attackerFromPlayers = isCurrentPlayerAttacker 
             ? { player_id: currentPlayerId, position: message.data.position }
             : message.data.room_players?.find(p => p.position === message.data.attacker_position);
-
+            
           const defenderFromPlayers = isCurrentPlayerDefender
             ? { player_id: currentPlayerId, position: message.data.position }
             : message.data.room_players?.find(p => p.position === message.data.defender_position);
 
-          // Определяем ID атакующего и защищающегося
           const attackerId = attackerFromPlayers?.player_id;
           const defenderId = defenderFromPlayers?.player_id;
-
-          console.log('🟢 Role determination:', {
-            currentPlayerId,
-            currentPosition: message.data.position,
-            attackerPosition: message.data.attacker_position,
-            defenderPosition: message.data.defender_position,
-            attackerId,
-            defenderId,
-            isAttacker: isCurrentPlayerAttacker,
-            isDefender: isCurrentPlayerDefender,
-            totalPlayers: message.data.room_players?.length + 1, // +1 for current player
-            allPositions: [
-              message.data.position,
-              ...(message.data.room_players?.map(p => p.position) || [])
-            ].sort()
-          });
-
           const playerStatus = message.data.status || 'not_ready';
+          
           setGameState((prev) => {
-            // Создаем полный список игроков, включая текущего
             const allPlayers = [
-              // Текущий игрок
               {
                 id: currentPlayerId,
                 name: `Player ${currentPlayerId}`,
@@ -202,7 +124,6 @@ function Game() {
                 position: message.data.position,
                 status: playerStatus
               },
-              // Остальные игроки
               ...(message.data.room_players || []).map(player => ({
                 id: player.player_id,
                 name: player.name,
@@ -210,9 +131,9 @@ function Game() {
                 position: player.position,
                 status: player.status
               }))
-            ].sort((a, b) => a.position - b.position); // Сортируем по позициям
+            ].sort((a, b) => a.position - b.position);
 
-            const newState = {
+            return {
               ...prev,
               yourCards: message.data.cards || [],
               players: allPlayers,
@@ -235,22 +156,6 @@ function Game() {
               isAttacker: isCurrentPlayerAttacker,
               isDefender: isCurrentPlayerDefender
             };
-
-            console.log('🟢 Updated game state:', {
-              trumpSuit: newState.trumpSuit,
-              trumpRank: newState.trumpRank,
-              deckSize: newState.deckSize,
-              playerStatus: newState.playerStatus,
-              currentAttackerId: newState.current_attacker_id,
-              currentDefenderId: newState.current_defender_id,
-              playerId: newState.player_id,
-              playerPosition: newState.player_position,
-              isAttacker: newState.isAttacker,
-              isDefender: newState.isDefender,
-              currentState: newState.gamePhase
-            });
-
-            return newState;
           });
           break;
 
@@ -273,7 +178,6 @@ function Game() {
           break;
 
         case 'player_disconnected':
-          console.log('Игрок отключился:', message.data);
           setGameState(prev => ({
             ...prev,
             players: prev.players.filter(p => p.id !== message.data.player_id)
@@ -281,347 +185,150 @@ function Game() {
           break;
 
         case 'self_status_update':
-          setGameState(prev => {
-            const updatedPlayers = prev.players.map(p =>
-              p.id === prev.player_id
-                ? { ...p, status: message.data.status }
-                : p
-            );
-            return {
-              ...prev,
-              playerStatus: message.data.status,
-              yourAllowedActions: message.data.allowed_actions,
-              players: updatedPlayers,
-            };
-          });
-          break;
-
-        case 'player_status':
-        case 'player_status_changed':
           setGameState(prev => ({
             ...prev,
-            players: prev.players.map(p =>
-              p.id === message.data.player_id
-                ? { ...p, status: message.data.status }
-                : p
-            ),
+            playerStatus: message.data.status,
+            yourAllowedActions: message.data.allowed_actions || prev.yourAllowedActions
           }));
           break;
 
-        case 'game_ended':
-          const winnerId = message.data.winner_id;
-          const isWinner = winnerId === currentPlayerId;
-
-          if (isWinner) {
-            toast.success("Поздравляем! Вы победили!", {
-              position: "top-center",
-              autoClose: 5000,
-              toastId: 'game-won',
-            });
-          } else {
-            toast.warn("К сожалению, вы проиграли. Повезет в следующий раз!", {
-              position: "top-center",
-              autoClose: 5000,
-              toastId: 'game-lost',
-            });
-          }
+        case 'player_status_changed':
+          setGameState(prev => ({
+            ...prev,
+            players: prev.players.map(p => 
+              p.id === message.data.player_id 
+                ? { ...p, status: message.data.status } 
+                : p
+            )
+          }));
           break;
-
-        case 'game_phase_changed':
-          console.log('🟡 Game phase changed:', {
-            message: message.data,
-            phase: message.data.phase,
-            state_info: message.data.state_info,
-            attacker_position: message.data.attacker_position,
-            defender_position: message.data.defender_position
-          });
-
-          setGameState(prev => {
-            const isCurrentPlayerAttacker = prev.player_position === message.data.attacker_position;
-            const isCurrentPlayerDefender = prev.player_position === message.data.defender_position;
-            
-            // Находим игроков по позициям из полного списка
-            const attackerFromPlayers = prev.players.find(p => p.position === message.data.attacker_position);
-            const defenderFromPlayers = prev.players.find(p => p.position === message.data.defender_position);
-
-            const newState = {
-              ...prev,
-              gamePhase: message.data.phase,
-              showReadyButton: message.data.phase === 'LobbyState',
-              ...(message.data.phase === 'PlayRoundWithoutThrowState' && {
-                current_attacker_id: attackerFromPlayers?.id,
-                current_defender_id: defenderFromPlayers?.id,
-                attackerPosition: message.data.attacker_position,
-                defenderPosition: message.data.defender_position,
-                isAttacker: isCurrentPlayerAttacker,
-                isDefender: isCurrentPlayerDefender
-              }),
-            };
-
-            console.log('🟡 Game state after phase change:', {
-              phase: newState.gamePhase,
-              currentAttackerId: newState.current_attacker_id,
-              currentDefenderId: newState.current_defender_id,
-              playerId: newState.player_id,
-              playerPosition: newState.player_position,
-              attackerPosition: newState.attackerPosition,
-              defenderPosition: newState.defenderPosition,
-              isAttacker: newState.isAttacker,
-              isDefender: newState.isDefender,
-              allPlayers: prev.players.map(p => ({
-                id: p.id,
-                position: p.position,
-                isAttacker: p.position === message.data.attacker_position,
-                isDefender: p.position === message.data.defender_position
-              }))
-            });
-
-            return newState;
-          });
-          break;
-
+        
         default:
-          console.log('Unknown message type:', message.type, message.data);
+          console.warn('Неизвестный тип сообщения от WebSocket:', message.type);
       }
     } catch (error) {
-      console.error('Ошибка парсинга WebSocket сообщения:', error);
+      console.error('Ошибка обработки WebSocket сообщения:', error);
     }
   }, []);
 
-  // WebSocket подключение
   useEffect(() => {
     if (!websocketUrl) {
-      console.log('WebSocket URL не найден, используем моки');
       setIsUsingMocks(true);
       setConnectionStatus('Connected');
       return;
     }
 
-    // Добавляем токен к URL WebSocket
     const token = localStorage.getItem('token');
     const wsUrlWithToken = token ? `${websocketUrl}?token=${token}` : websocketUrl;
 
-    console.log('Подключаемся к WebSocket:', wsUrlWithToken);
     ws.current = new WebSocket(wsUrlWithToken);
-
     ws.current.onopen = () => {
-      console.log('WebSocket подключен');
       setConnectionStatus('Connected');
       setIsUsingMocks(false);
-
-      // Отправляем сообщение о подключении сразу после установки соединения
-      const connectMessage = {
-        type: 'player_connected',
-        data: {
-          gameId: game_id,
-          playerId: sessionStorage.getItem('playerId')
-        }
-      };
-      console.log('Отправляем сообщение о подключении:', connectMessage);
-      ws.current.send(JSON.stringify(connectMessage));
+      sendWebSocketMessage({ type: 'player_connected' });
     };
-
-    ws.current.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        console.log('WebSocket сообщение получено:', message);
-        handleWebSocketMessage(event);
-      } catch (error) {
-        console.error('Ошибка парсинга WebSocket сообщения:', error);
-      }
-    };
-
-    ws.current.onclose = (event) => {
-      console.log('WebSocket отключен:', event.code, event.reason);
-      setConnectionStatus('Disconnected');
-    };
-
-    ws.current.onerror = (error) => {
-      console.error('WebSocket ошибка:', error);
-      setConnectionStatus('Error');
-    };
+    ws.current.onmessage = handleWebSocketMessage;
+    ws.current.onclose = () => setConnectionStatus('Disconnected');
+    ws.current.onerror = () => setConnectionStatus('Error');
 
     return () => {
-      if (ws.current) {
-        // Отправляем сообщение об отключении перед закрытием
-        if (ws.current.readyState === WebSocket.OPEN) {
-          const disconnectMessage = {
-            type: 'player_disconnected',
-            data: {
-              gameId: game_id,
-              playerId: sessionStorage.getItem('playerId')
-            }
-          };
-          console.log('Отправляем сообщение об отключении:', disconnectMessage);
-          ws.current.send(JSON.stringify(disconnectMessage));
-        }
-        ws.current.close(1000, 'Component unmounting');
-      }
+      ws.current?.close(1000, 'Component unmounting');
     };
-  }, [websocketUrl, game_id, sendWebSocketMessage, handleWebSocketMessage]);
+  }, [websocketUrl, sendWebSocketMessage, handleWebSocketMessage]);
 
-  // Количество сброшенных карт
   const calculateDiscardCount = useCallback(() => {
-    const playersCardsSum = gameState.players.reduce((sum, player) => sum + (player.cards || 0), 0);
+    const otherPlayersCardsSum = gameState.players
+      .filter(p => p.id !== gameState.player_id)
+      .reduce((sum, player) => sum + (player.cards || 0), 0);
+      
     const yourCardsCount = gameState.yourCards.length;
-    // Считаем ВСЕ карты на столе (и base, и cover)
-    const tableCardsCount = gameState.tableCards.reduce((sum, pair) => {
-      let count = 0;
-      if (pair && pair.base) count += 1;
-      if (pair && pair.cover) count += 1;
-      return sum + count;
-    }, 0);
-    return Math.max(0, TOTAL_DECK_CARDS - (playersCardsSum + yourCardsCount + tableCardsCount + gameState.deckSize));
-  }, [gameState]);
+    const tableCardsCount = gameState.tableCards.reduce((sum, pair) => sum + (pair.base ? 1 : 0) + (pair.cover ? 1 : 0), 0);
+    const totalCardsInPlay = otherPlayersCardsSum + yourCardsCount + tableCardsCount + gameState.deckSize;
+
+    return Math.max(0, TOTAL_DECK_CARDS - totalCardsInPlay);
+  }, [gameState.players, gameState.yourCards, gameState.tableCards, gameState.deckSize, gameState.player_id]);
 
   const canAttack = gameState.yourAllowedActions.includes('ATTACK');
   const canDefend = gameState.yourAllowedActions.includes('DEFEND');
   const canPass = gameState.yourAllowedActions.includes('PASS');
 
-  // Drag-n-drop обработчики
-  const handleDragStart = useCallback((event, card) => {
-    if (canAttack || canDefend) {
-      event.dataTransfer.setData("application/json", JSON.stringify(card));
-    } else {
-      event.preventDefault();
+  const performMove = useCallback((droppedCard, targetBaseCard) => {
+    const isDefending = !!targetBaseCard;
+    if ((isDefending && !canDefend) || (!isDefending && !canAttack)) {
+      return;
     }
-  }, [canAttack, canDefend]);
 
-  const handleDrop = useCallback((event, targetBaseCard) => {
-    event.preventDefault();
-    const card = JSON.parse(event.dataTransfer.getData("application/json"));
-
-    if (isUsingMocks) {
-      setGameState(prev => {
-        let tableCards;
-        if (targetBaseCard) {
-          tableCards = prev.tableCards.map(pair => {
-            if (
-              pair.base.rank === targetBaseCard.rank &&
-              pair.base.suit === targetBaseCard.suit &&
-              !pair.cover
-            ) {
-              return { ...pair, cover: card };
-            }
-            return pair;
-          });
-        } else {
-          tableCards = [...prev.tableCards, { base: card, cover: null }];
-        }
-        const yourCards = prev.yourCards.filter(
-          c => c.rank !== card.rank || c.suit !== card.suit
-        );
-        return { ...prev, tableCards, yourCards };
+    if (!isUsingMocks) {
+      sendWebSocketMessage({
+        type: 'play_card',
+        ...(isDefending ? { attack_card: targetBaseCard, defend_card: droppedCard } : { attack_card: droppedCard })
       });
-    } else {
-      if (targetBaseCard) {
-        if (canDefend) {
-          sendWebSocketMessage({
-            type: 'play_card',
-            attack_card: targetBaseCard,
-            defend_card: card
-          });
-        }
+    }
+
+    setGameState(prev => {
+      const newYourCards = prev.yourCards.filter(c => !(c.rank === droppedCard.rank && c.suit === droppedCard.suit));
+      let newTableCards;
+      if (isDefending) {
+        newTableCards = prev.tableCards.map(pair => 
+          pair.base.rank === targetBaseCard.rank && pair.base.suit === targetBaseCard.suit
+            ? { ...pair, cover: droppedCard }
+            : pair
+        );
       } else {
-        if (canAttack) {
-          sendWebSocketMessage({
-            type: 'play_card',
-            attack_card: card
-          });
-        }
+        newTableCards = [...prev.tableCards, { base: droppedCard, cover: null }];
       }
-      // Оптимистичное обновление (по желанию)
-      setGameState(prev => {
-        let tableCards;
-        if (targetBaseCard) {
-          tableCards = prev.tableCards.map(pair => {
-            if (
-              pair.base.rank === targetBaseCard.rank &&
-              pair.base.suit === targetBaseCard.suit &&
-              !pair.cover
-            ) {
-              return { ...pair, cover: card };
-            }
-            return pair;
-          });
-        } else {
-          tableCards = [...prev.tableCards, { base: card, cover: null }];
-        }
-        const yourCards = prev.yourCards.filter(
-          c => c.rank !== card.rank || c.suit !== card.suit
-        );
-        return { ...prev, tableCards, yourCards };
-      });
+      return { ...prev, yourCards: newYourCards, tableCards: newTableCards };
+    });
+  }, [canAttack, canDefend, isUsingMocks, sendWebSocketMessage]);
+
+  const handleCustomCardDrop = useCallback((event, droppedCard) => {
+    const dropTarget = document.elementFromPoint(event.clientX, event.clientY);
+    const attackZone = dropTarget?.closest('[data-is-attack-zone="true"]');
+    const defenseSlot = dropTarget?.closest('[data-base-card]');
+    let wasSuccessful = false;
+
+    if (defenseSlot && canDefend) {
+      const targetCard = JSON.parse(defenseSlot.dataset.baseCard);
+      performMove(droppedCard, targetCard);
+      wasSuccessful = true;
+    } else if (attackZone && canAttack) {
+      performMove(droppedCard, null);
+      wasSuccessful = true;
     }
-  }, [isUsingMocks, sendWebSocketMessage, game_id, canAttack, canDefend]);
+    return wasSuccessful;
+  }, [performMove, canAttack, canDefend]);
 
-  const handleDragOver = useCallback((event) => {
-    event.preventDefault();
-  }, []);
-
-  // Показываем загрузку если подключаемся
-  if (connectionStatus === 'Connecting' || connectionStatus === 'Reconnecting') {
+  if (connectionStatus === 'Connecting') {
     return <LoadingScreen status={connectionStatus} />;
   }
 
   return (
     <div className="game">
-      <ToastContainer
-        limit={3} // Максимальное количество уведомлений одновременно
-        newestOnTop={true}
-      />
+      <ToastContainer limit={3} newestOnTop={true} />
       <div className="card-table">
         <ConnectionStatus status={connectionStatus} isUsingMocks={isUsingMocks} />
 
-        {/* Добавляем отладочную информацию */}
-        {process.env.NODE_ENV === 'development' && (
-          <div style={{ position: 'absolute', top: '40px', left: '10px', color: 'white', fontSize: '12px', zIndex: 1000 }}>
-            <div>Trump Suit: {gameState.trumpSuit || 'not set'}</div>
-            <div>Trump Rank: {gameState.trumpRank || 'not set'}</div>
-            <div>Deck Size: {gameState.deckSize}</div>
-          </div>
-        )}
-
-        {/* Кнопка готовности всегда видна */}
         {canPass && (
-          <button
-            onClick={handlePassClick}
-            className="ready-button pass-button"
-          >
-            Пас
-          </button>
+          <button onClick={handlePassClick} className="ready-button pass-button">Пас</button>
         )}
         {gameState.yourAllowedActions.includes('READY') && (
-          <button
-            onClick={handleReadyClick}
-            className="ready-button"
-          >
-            Готов
-          </button>
+          <button onClick={handleReadyClick} className="ready-button">Готов</button>
         )}
         {gameState.yourAllowedActions.includes('UNREADY') && (
-          <button
-            onClick={handleReadyClick}
-            className="ready-button ready-button--active"
-          >
-            Не готов
-          </button>
+          <button onClick={handleReadyClick} className="ready-button ready-button--active">Не готов</button>
         )}
 
-        {/* Показываем статус готовности других игроков */}
         <PlayerPositionsOnTable
           players={gameState.players.filter(p => p.id !== gameState.player_id)}
-          maxPositions={isUsingMocks ? 6 : 6}
+          maxPositions={6}
           currentPlayerPosition={gameState.player_position}
-          showStatus={showReadyButton} // Показываем статусы только в лобби
+          showStatus={showReadyButton}
           attackerPosition={gameState.attackerPosition}
           defenderPosition={gameState.defenderPosition}
         />
 
         <Table
           playedCards={gameState.tableCards}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
           isDefender={canDefend}
           isAttacker={canAttack}
         />
@@ -629,27 +336,9 @@ function Game() {
         <DeckWithTrump
           count={gameState.deckSize}
           backImage={backImage}
-          trumpCardImage={gameState.trumpSuit && gameState.trumpRank ?
-            getCardSvgPath({
-              rank: gameState.trumpRank,
-              suit: gameState.trumpSuit.toLowerCase() === 'd' ? 'diamonds' :
-                gameState.trumpSuit.toLowerCase() === 'h' ? 'hearts' :
-                  gameState.trumpSuit.toLowerCase() === 's' ? 'spades' :
-                    gameState.trumpSuit.toLowerCase() === 'c' ? 'clubs' :
-                      gameState.trumpSuit
-            }) :
-            backImage}
+          trumpCardImage={gameState.trumpSuit && gameState.trumpRank ? getCardSvgPath({ rank: gameState.trumpRank, suit: gameState.trumpSuit }) : backImage}
           trumpSuit={gameState.trumpSuit}
         />
-        {/* Добавляем лог после рендера DeckWithTrump */}
-        {console.log('DeckWithTrump props:', {
-          count: gameState.deckSize,
-          trumpSuit: gameState.trumpSuit,
-          trumpRank: gameState.trumpRank,
-          trumpCardImage: gameState.trumpSuit && gameState.trumpRank ?
-            getCardSvgPath({ rank: gameState.trumpRank, suit: gameState.trumpSuit }) :
-            'backImage'
-        })}
 
         <DiscardDeck
           cardImage={require('assets/images/imperial_back.png')}
@@ -663,9 +352,9 @@ function Game() {
             <Card
               key={`${card.rank}-${card.suit}`}
               card={card}
-              onDragStart={(e) => handleDragStart(e, card)}
               draggable={canAttack || canDefend}
               className="card--face"
+              onCustomDrop={handleCustomCardDrop}
             />
           ))}
         </div>

@@ -8,10 +8,13 @@ from backend.app.contracts.game_contract import (
 from backend.app.models.player import PlayerStatus
 from backend.app.utils.game_interface import GameState
 from typing import Dict, List, Any, Optional, TYPE_CHECKING
+import logging
 
 if TYPE_CHECKING:
     from backend.app.models.game import FoolGame
     from backend.app.models.player import Player
+
+logger = logging.getLogger(__name__)
 
 
 class GameOverState(GameState):
@@ -52,8 +55,14 @@ class GameOverState(GameState):
         return {"message": "Выход из экрана окончания игры."}
 
     def handle_input(self, player_input) -> None:
-        # В этом состоянии нет действий от игроков
-        return None
+        """
+        При любой попытке действия в законченной игре возвращает
+        информативный ответ о том, что действие невозможно.
+        """
+        return StateResponse(
+            result=ActionResult.INVALID_ACTION,
+            message="Игра уже окончена. Новые действия невозможны."
+        )
 
     def get_allowed_actions(self) -> Dict[str, list]:
         # В этом состоянии нет разрешенных действий

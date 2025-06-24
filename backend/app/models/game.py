@@ -2,7 +2,6 @@ import logging
 import traceback
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from backend.app.utils.logger import setup_logger
 from backend.app.utils.game_interface import Game, GameState
 from backend.app.states.lobby_state import LobbyState
 from backend.app.states.deal_state import DealState
@@ -19,7 +18,7 @@ from backend.app.contracts.game_contract import (
     StateTransition,
 )
 
-logger = setup_logger(__name__, log_file="logs/debug.log", level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 class FoolGame(Game):
@@ -120,48 +119,33 @@ class FoolGame(Game):
             enter_info=enter_info,
         )
 
-    def handle_input(
-        self, player_input: PlayerInput
-    ) -> StateResponse | StateTransition:
-        """
-        Передает ввод текущему состоянию и обрабатывает результат
-
-        Args:
-            player_input: Структурированный ввод от игрока
-
-        Returns:
-            StateResponse: Результат обработки ввода
-        """
+    def handle_input(self, player_input: PlayerInput) -> StateResponse | StateTransition | None:
         if not self._current_state:
-            return StateResponse(
-                ActionResult.INVALID_ACTION, "No active state", None, None
-            )
-        logger.debug(f"Обработка ввода игрока: {player_input}")
+            return StateResponse(ActionResult.INVALID_ACTION, "No active state")
+
+        logger.debug(f"Обработка ввода игрока: {player_input} в состоянии {self.current_state_name}")
         response = self._current_state.handle_input(player_input)
-        logger.debug(f"Результат обработки ввода: {response} + {response.next_state}")
-        # Если нужно сменить состояние
+
+        if not response:
+            logger.debug("Обработка ввода не вернула ответа (response is None).")
+            return None # Или можно вернуть осмысленный StateResponse
+
+        logger.debug(f"Результат обработки ввода: {response}")
+
         if (
-            response.next_state
-            and response.next_state != self._current_state.__class__.__name__
+            hasattr(response, 'next_state') and response.next_state and
+            response.next_state != self._current_state.__class__.__name__
         ):
-            # Находим класс состояния по имени и создаем экземпляр
-            logger.info(
-                f"Смена состояния: {self._current_state.__class__.__name__} -> {response.next_state}"
-            )
-            # Find the state class by name from all GameState subclasses
+            logger.info(f"Смена состояния: {self.current_state_name} -> {response.next_state}")
+            
             state_class = next((s for s in GameState.__subclasses__() if s.__name__ == response.next_state), None)
             
             if state_class:
-                transition: StateTransition = self._set_state(state_class(self))
-                return transition
+                return self._set_state(state_class(self))
             
             logger.warning(f"Состояние {response.next_state} не найдено.")
-            return StateResponse(
-                ActionResult.INVALID_ACTION,
-                f"State {response.next_state} not found",
-                None,
-                None,
-            )
+            return StateResponse(ActionResult.INVALID_ACTION, f"State {response.next_state} not found")
+
         return response
 
     def get_game_state(self) -> Dict[str, Any]:

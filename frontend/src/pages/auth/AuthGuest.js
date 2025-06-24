@@ -44,7 +44,6 @@ function AuthGuest() {
 
         try {
             const authData = await api.post(`/auth_guest?player_name=${encodeURIComponent(trimmedName)}`);
-            console.log('Ответ от сервера:', authData);
 
             if (authData.playerId) {
                 // Сохраняем данные авторизации

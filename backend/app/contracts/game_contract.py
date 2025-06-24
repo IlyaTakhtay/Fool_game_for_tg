@@ -45,7 +45,7 @@ class ActionResult(Enum):
     NOT_YOUR_TURN = auto()
     GAME_OVER = auto()
     CARD_REQUIRED = auto()  # Когда действие требует карту, но она не предоставлена
-    CANNOT_BEAT = auto()  # Когда карта не может побить атакующую карту
+    CANNOT_BEAT = auto()  # Когда карта не может побить атакующую карту TODO: remove
     WRONG_CARD = auto()  # Когда карта не соответствует правилам подкидывания
     TABLE_FULL = auto()  # Когда на столе нет места для карты
     INTERNAL_ERROR = auto()  # Внутренняя ошибка сервера

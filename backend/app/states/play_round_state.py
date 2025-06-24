@@ -5,7 +5,6 @@ from typing import Dict, List, Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from backend.app.models.game import FoolGame
 
-from backend.app.utils.logger import setup_logger
 from backend.app.models.card import Card
 from backend.app.utils.game_interface import GameState
 from backend.app.models.player import Player, PlayerStatus
@@ -17,7 +16,7 @@ from backend.app.contracts.game_contract import (
     StateTransition,
 )
 
-logger = setup_logger(__name__, log_file="logs/debug.log", level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 class ExtraThrowActionMixin:
@@ -210,7 +209,6 @@ class PlayRoundWithoutThrowState(GameState):
         except (TypeError, IndexError):
             attacker = None
         if not attacker or player_input.attack_card not in attacker.get_cards():
-            logger = setup_logger("card_check_logger")
             logger.info(f"Player hand: {[str(c) for c in attacker.get_cards()]}")
             logger.info(f"Card to play: {player_input.attack_card} (rank={player_input.attack_card.rank} id={id(player_input.attack_card.rank)} type={type(player_input.attack_card.rank)}), (suit={player_input.attack_card.suit} id={id(player_input.attack_card.suit)} type={type(player_input.attack_card.suit)})")
             for c in attacker.get_cards():

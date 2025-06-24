@@ -2,11 +2,8 @@ import React from 'react';
 import Card from './Card';
 import 'assets/styles/game/Table.css';
 
-function Table({ playedCards, onDrop, onDragOver, isDefender, isAttacker }) {
+function Table({ playedCards, isDefender, isAttacker }) {
   const hasCardsOnTable = playedCards && playedCards.length > 0;
-  
-  // The dropzone for attacking should always be available for the attacker,
-  // but we can hide the instructional text if cards are already on the table.
   const showAttackDropZone = isAttacker;
 
   return (
@@ -14,8 +11,7 @@ function Table({ playedCards, onDrop, onDragOver, isDefender, isAttacker }) {
       {showAttackDropZone && (
         <div
           className="table__new-attack-dropzone table__new-attack-dropzone--active"
-          onDrop={(e) => onDrop(e, null)}
-          onDragOver={onDragOver}
+          data-is-attack-zone="true"
         >
           {!hasCardsOnTable && 'Бросить карту'}
         </div>
@@ -31,8 +27,7 @@ function Table({ playedCards, onDrop, onDragOver, isDefender, isAttacker }) {
             <div
               key={`${pair.base.rank}-${pair.base.suit}-${idx}`}
               className={`table-card-slot ${canDropOnThisCard ? 'table-card-slot--can-drop' : ''}`}
-              onDrop={canDropOnThisCard ? (e) => onDrop(e, pair.base) : undefined}
-              onDragOver={canDropOnThisCard ? onDragOver : undefined}
+              data-base-card={canDropOnThisCard ? JSON.stringify(pair.base) : undefined}
             >
               <Card
                 card={pair.base}
