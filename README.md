@@ -17,8 +17,8 @@ _Full-stack реализация карточной игры "Дурак" с rea
     <td align="center"><strong>Игровой процесс</strong></td>
   </tr>
   <tr>
-    <td><img src="(ссылка на .gif)" alt="Lobby and Connection"></td>
-    <td><img src="(ссылка на .gif)" alt="Two Players Gameplay"></td>
+    <td><img src="(https://github.com/IlyaTakhtay/Fool_game_for_tg/blob/main/gameplay/defend.gif)" alt="Defend Gameplay"></td>
+    <td><img src="(ссылка на .gif)" alt="Attack gameplay"></td>
   </tr>
 </table>
 
