@@ -20,7 +20,10 @@
     transition: background-color 0.6s ease, transform 0.2s ease, box-shadow 0.2s ease;
 
   }
-  
+  .menu-button.solo {
+    margin-top: 2vh;
+  }
+
   .menu-button:hover {
     background-color: var(--hover-button-color);
     box-shadow: 0 0 6px var(--hover-button-color); /* Подсветка при фокусе */
