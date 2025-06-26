@@ -13,8 +13,8 @@ _Full-stack реализация карточной игры "Дурак" с rea
 ## Демонстрация
 <table>
   <tr>
-    <td align="center"><strong>Лобби и подключение к игре</strong></td>
-    <td align="center"><strong>Игровой процесс</strong></td>
+    <td align="center"><strong>Defend Gameplay</strong></td>
+    <td align="center"><strong>Attack gameplay</strong></td>
   </tr>
   <tr>
     <td><img src="./gameplay/defend.gif" alt="Defend Gameplay" width="400"></td>
