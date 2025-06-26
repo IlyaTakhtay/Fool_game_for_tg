@@ -199,7 +199,7 @@ function GamesList() {
           </tbody>
         </table>
       </BeautyForm>
-      <MenuButton onClick={handleBackwards} text="Назад" />
+      <MenuButton onClick={handleBackwards} text="Назад" className="solo"/>
     </div>
   );
 }

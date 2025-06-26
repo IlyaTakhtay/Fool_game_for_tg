@@ -192,7 +192,7 @@ function Game() {
           }));
           break;
 
-        case 'player_status_changed':
+        case 'player_status':
           setGameState(prev => ({
             ...prev,
             players: prev.players.map(p => 
