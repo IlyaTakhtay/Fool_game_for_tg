@@ -2,7 +2,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: config/dockerfile.dev
+      dockerfile: build/dockerfile.dev
     container_name: fast_api
     ports:
       - "80:80"
