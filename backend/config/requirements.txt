@@ -1,8 +1,0 @@
-fastapi
-uvicorn
-redis
-asyncpg
-msgspec
-uvloop
-httptools
-websockets

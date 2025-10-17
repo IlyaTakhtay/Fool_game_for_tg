@@ -1,13 +1,13 @@
 import pytest
 from unittest.mock import Mock, MagicMock
-from backend.app.states.game_over import GameOverState
-from backend.app.contracts.game_contract import (
+from backend.src.game.states.game_over import GameOverState
+from backend.src.game.contracts.game_contract import (
     PlayerInput,
     PlayerAction,
     StateResponse,
     ActionResult,
 )
-from backend.app.models.player import PlayerStatus
+from backend.src.game.models.player import PlayerStatus
 from unittest.mock import ANY
 
 

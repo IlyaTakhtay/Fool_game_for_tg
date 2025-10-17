@@ -1,11 +1,11 @@
 import uuid
 import pytest
-from backend.app.models.deck import Deck
-from backend.app.states.deal_state import DealState
-from backend.app.models.game import FoolGame
-from backend.app.models.player import Player, PlayerStatus
-from backend.app.models.card import Card, Suit, Rank
-from backend.app.contracts.game_contract import (
+from backend.src.game.models.deck import Deck
+from backend.src.game.states.deal_state import DealState
+from backend.src.game.models.game import FoolGame
+from backend.src.game.models.player import Player, PlayerStatus
+from backend.src.game.models.card import Card, Suit, Rank
+from backend.src.game.contracts.game_contract import (
     PlayerInput,
     PlayerAction,
     StateResponse,

@@ -3,11 +3,14 @@ import uuid
 import pytest
 import logging
 
-from backend.app.models.game import FoolGame
-from backend.app.contracts.game_contract import PlayerInput, PlayerAction, ActionResult
-from backend.app.models.card import Card, Suit, Rank, TrumpCard
-from backend.app.models.player import Player, PlayerStatus
-
+from backend.src.game.models.game import FoolGame
+from backend.src.game.contracts.game_contract import (
+    PlayerInput,
+    PlayerAction,
+    ActionResult,
+)
+from backend.src.game.models.card import Card, Suit, Rank, TrumpCard
+from backend.src.game.models.player import Player, PlayerStatus
 
 
 @pytest.fixture

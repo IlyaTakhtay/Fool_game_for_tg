@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+starlette
+asyncpg
+redis
+msgspec
+uvloop
+httptools
+websockets
+sse_starlette
