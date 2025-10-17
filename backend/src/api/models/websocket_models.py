@@ -89,6 +89,7 @@ class PublicGameData(BaseModel):
 
 class ReconnectionData(PrivatePlayerData, PublicGameData):
     """Модель данных для переподключения с полным состоянием игры"""
+
     current_state: str | None = None
     pass
 

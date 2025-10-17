@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: ./build/dockerfile.dev
+    volumes:
+      - ./src:/app/backend/src
     networks:
       - fool_game_network
     ports:

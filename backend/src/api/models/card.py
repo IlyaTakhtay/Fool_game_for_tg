@@ -1,4 +1,4 @@
-#pydantic card
+# pydantic card
 from dataclasses import dataclass
 from typing_extensions import Self
 
@@ -23,25 +23,26 @@ class Rank(Enum):
     KING = 13
     ACE = 14
 
+
 @dataclass(frozen=True)
-class Card():
+class Card:
     rank: Rank
     suit: Suit
 
     def __gt__(self, another: Self):
         if self.suit != another.suit:
             return NotImplemented
-        return (self.rank.value > another.rank.value)
+        return self.rank.value > another.rank.value
 
     def __lt__(self, another: Self):
         if self.suit != another.suit:
             return NotImplemented
-        return (self.rank.value < another.rank.value)
-    
+        return self.rank.value < another.rank.value
+
     def __eq__(self, another: object):
         if not isinstance(another, Card):
             return NotImplemented
         return (another.rank == self.rank) and (another.suit == self.suit)
-            
+
     def __str__(self):
         return f"{self.rank.name} of {self.suit.name}"

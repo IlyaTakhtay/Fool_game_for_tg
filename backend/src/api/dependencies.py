@@ -12,4 +12,4 @@ def get_game_manager() -> GameManager:
 
 def get_connection_manager() -> ConnectionManager:
     """Возвращает синглтон-экземпляр ConnectionManager."""
-    return connection_manager 
+    return connection_manager

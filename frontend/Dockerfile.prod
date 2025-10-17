@@ -1,0 +1,27 @@
+# # --- Этап 1: Сборка приложения ---
+# FROM node:18-alpine AS build
+
+# # Устанавливаем рабочую директорию
+# WORKDIR /app
+
+# # Копируем package.json и устанавливаем зависимости
+# COPY package*.json ./
+# RUN npm install
+
+# # Копируем исходный код
+# COPY . .
+
+# # Собираем приложение для продакшена
+# RUN npm run build
+
+# # --- Этап 2: Раздача статики через Nginx ---
+# FROM nginx:stable-alpine
+
+# # Копируем собранные файлы из этапа "build" в папку Nginx
+# COPY --from=build /app/build /usr/share/nginx/html
+
+# # Открываем порт 80 (стандартный для Nginx)
+# EXPOSE 80
+
+# # Запускаем Nginx
+# CMD ["nginx", "-g", "daemon off;"]
