@@ -54,8 +54,11 @@ class LobbyState(GameState):
             Dict[str, Any]: Информация о результатах состояния
         """
         # Подготовка к началу игры
-        # self.game.deck.shuffle()
-
+        self.game.deck.generate_deck()
+        for player in self.game.players:
+            logger.info(
+                f"Player {player.id_}: hand size = {len(player._hand)}, cards = {[str(c) for c in player._hand]}"
+            )
         # Раздача карт игрокам
         for player in self.game.players:
             for _ in range(6):
@@ -65,6 +68,7 @@ class LobbyState(GameState):
         self.game.current_attacker_id = self._determine_first_attacker()
         self.game.current_defender_id = self._determine_defender()
         self._clear_statuses()
+
         return {
             "message": "Игра начинается!",
             "players_count": len(self.game.players),
@@ -101,7 +105,7 @@ class LobbyState(GameState):
             # Проверяем, есть ли уже этот игрок в списке
             if any(p.id_ == player_input.player_id for p in self.game.players):
                 return StateResponse(
-                    ActionResult.INVALID_ACTION,
+                    ActionResult.SUCCESS,
                     "Вы уже присоединились к игре",
                     None,
                     None,
@@ -117,10 +121,11 @@ class LobbyState(GameState):
                 )
 
             # Добавляем нового игрока
-            new_player = Player(
-                player_input.player_id, f"Player {player_input.player_id}"
-            )  # TODO: вытаскивать потом из бд
-            self.game.players.append(new_player)
+            self.game.players.append(
+                Player(
+                    player_input.player_id, f"Player {player_input.player_id}"
+                )  # TODO: просто пока имя не получаем на вход
+            )
 
             return StateResponse(
                 ActionResult.SUCCESS,

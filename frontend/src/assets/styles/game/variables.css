@@ -56,5 +56,5 @@
   --z-index-player-info: 3;
   --z-index-card-slot: 4;
   --z-index-modal: 100;
-  --z-index-debug: 1000;
+  --z-index-hud-buttons: 1000;
 } 

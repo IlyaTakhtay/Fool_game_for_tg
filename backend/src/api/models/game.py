@@ -9,6 +9,7 @@ class GameJoinedResponse(BaseModel):
     game_id: str
     player_id: str
     websocket_connection: str
+    game_state: dict
 
 
 class GameInfoResponse(BaseModel):

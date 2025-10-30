@@ -4,7 +4,9 @@ starlette
 asyncpg
 redis
 msgspec
-uvloop
+uvloop; sys_platform != "win32"
 httptools
 websockets
 sse_starlette
+dishka
+pydantic-settings

@@ -50,26 +50,33 @@ class Card:
         return {"rank": str(self.rank.value), "suit": self.suit.value}
 
     @staticmethod
-    def from_dict(data: dict, trump_suit=None) -> 'Card':
-        rank = data['rank']
-        suit = data['suit']
-        # Преобразуем rank
-        if isinstance(rank, str):
-            if rank.isdigit():
-                rank = Rank(int(rank))
+    def from_dict(data: dict, trump_suit=None) -> "Card":
+        rank_value = data["rank"]
+        suit_value = data["suit"]
+
+        # Convert rank_value to Rank enum
+        if isinstance(rank_value, str):
+            if rank_value.isdigit():
+                rank = Rank(int(rank_value))
             else:
-                rank = Rank[rank]  # 'SIX' -> Rank.SIX
+                rank = Rank[rank_value]
+        elif isinstance(rank_value, int):
+            rank = Rank(rank_value)
         else:
-            rank = Rank(rank)
-        # Преобразуем suit
-        if isinstance(suit, str):
-            if len(suit) == 1:
-                suit = Suit(suit)
-            else:
-                suit = Suit[suit]  # 'SPADES' -> Suit.SPADES
+            raise ValueError(f"Invalid rank value: {rank_value}")
+
+        # Convert suit_value to Suit enum
+        if isinstance(suit_value, str):
+            if (
+                len(suit_value) == 1
+            ):  # Assuming single character for Suit value (e.g., "H")
+                suit = Suit(suit_value)
+            else:  # Assuming full name for Suit (e.g., "HEARTS")
+                suit = Suit[suit_value]
         else:
-            suit = Suit(suit)
-        # Если это козырная масть — создаём TrumpCard
+            raise ValueError(f"Invalid suit value: {suit_value}")
+
+        # If it's a trump suit, create a TrumpCard
         if trump_suit is not None and suit == trump_suit:
             return TrumpCard(rank=rank, suit=suit)
         return Card(rank=rank, suit=suit)

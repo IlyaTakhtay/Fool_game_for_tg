@@ -45,6 +45,15 @@ class DealState(GameState):
         # }
 
     def handle_input(self, player_input: PlayerInput) -> StateResponse:
+        if player_input.action == PlayerAction.QUIT:
+            self.game.players = [p for p in self.game.players if p.id_ != player_input.player_id]
+            return StateResponse(
+                ActionResult.SUCCESS,
+                f"Игрок {player_input.player_id} покинул игру. Игра завершена.",
+                "GameOverState",
+                data={"loser_ids": [player_input.player_id]},
+            )
+
         if not self._check_win_condition():
             return StateResponse(
                 ActionResult.SUCCESS,

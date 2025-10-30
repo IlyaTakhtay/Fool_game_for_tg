@@ -59,7 +59,7 @@ class ConnectionManager:
             player_id (str): Уникальный идентификатор игрока.
         """
         if player_id in self.connections:
-            del self.connections[player_id]
+            self.connections.pop(player_id)
             logger.info(f"Игрок {player_id} отключен")
 
     async def broadcast_to_players(

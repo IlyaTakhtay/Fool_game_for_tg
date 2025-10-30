@@ -363,13 +363,13 @@ class PlayRoundWithoutThrowState(GameState):
 
     def _handle_player_quit_action(self, player_input: PlayerInput) -> StateResponse:
         if pl := self.game.get_player_by_id(player_input.player_id):
-            pl.status = PlayerStatus.LEAVED
+            self.game.players = [p for p in self.game.players if p.id_ != player_input.player_id]
 
             return StateResponse(
                 ActionResult.SUCCESS,
                 f"Игрок {player_input.player_id} покинул игру. Игра завершена.",
                 "GameOverState",
-                {"players_count": len(self.game.players)},
+                data={"loser_ids": [player_input.player_id]},
             )
         else:
             return StateResponse(

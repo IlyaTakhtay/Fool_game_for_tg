@@ -37,6 +37,7 @@ class FoolGame(Game):
         self.current_defender_id: str | None = None
         self._current_state: GameState = LobbyState(self)
         self.round_defender_status: PlayerAction | None = None
+        self.loser_ids: List[str] | None = None
 
     @property
     def current_state_name(self) -> str:
@@ -58,6 +59,18 @@ class FoolGame(Game):
                 if player.id_ == self.current_defender_id:
                     return i
         return None
+
+    @property
+    def status(self) -> str:
+        """Динамически определяем статус по текущему состоянию"""
+        if isinstance(self._current_state, GameOverState):
+            return "finished"
+        elif isinstance(self._current_state, LobbyState):
+            return "pending"
+        elif isinstance(self._current_state, GameState):
+            return "active"
+        else:
+            return "unknown"
 
     def get_player_by_id(self, player_id: str) -> Player | None:
         """
@@ -137,6 +150,9 @@ class FoolGame(Game):
             and response.next_state
             and response.next_state != self._current_state.__class__.__name__
         ):
+            if response.data and "loser_ids" in response.data:
+                self.loser_ids = response.data["loser_ids"]
+
             logger.info(
                 f"Смена состояния: {self.current_state_name} -> {response.next_state}"
             )
@@ -219,11 +235,46 @@ class FoolGame(Game):
         # Return a default (e.g., only QUIT) if no state or method exists
         return {p.id_: [PlayerAction.QUIT.name] for p in self.players}
 
-    def _initialize_states(self):
-        from backend.src.game.states.lobby_state import LobbyState
-        from backend.src.game.states.play_round_state import (
-            PlayRoundWithoutThrowState,
-            PlayRoundWithThrowState,
-            PlayRoundWithThrowAndDefendState,
-            PlayRoundWithThrowAndDefendAndAttackState,
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "game_id": self.game_id,
+            "players_limit": self.players_limit,
+            "players": [player.to_dict() for player in self.players],
+            "deck": self.deck.to_dict(),
+            "game_table": self.game_table.to_dict(),
+            "state_history": self.state_history,
+            "current_attacker_id": self.current_attacker_id,
+            "current_defender_id": self.current_defender_id,
+            "_current_state_name": self._current_state.__class__.__name__,
+            "round_defender_status": self.round_defender_status.value if self.round_defender_status else None,
+            "loser_ids": self.loser_ids,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'FoolGame':
+        game = cls(game_id=data["game_id"], players_limit=data["players_limit"])
+        game.players = [Player.from_dict(player_data) for player_data in data["players"]]
+        game.deck = Deck.from_dict(data["deck"])
+        game.game_table = CardTable.from_dict(data["game_table"], trump_suit=game.deck.trump_suit)
+        game.state_history = data["state_history"]
+        game.current_attacker_id = data["current_attacker_id"]
+        game.current_defender_id = data["current_defender_id"]
+
+        # Reconstruct _current_state
+        state_class = next(
+            (
+                s
+                for s in GameState.__subclasses__()
+                if s.__name__ == data["_current_state_name"]
+            ),
+            None,
         )
+        if state_class:
+            game._current_state = state_class(game)
+        else:
+            game._current_state = LobbyState(game)  # Fallback
+
+        game.round_defender_status = PlayerAction(data["round_defender_status"]) if data["round_defender_status"] else None
+        game.loser_ids = data.get("loser_ids")
+
+        return game

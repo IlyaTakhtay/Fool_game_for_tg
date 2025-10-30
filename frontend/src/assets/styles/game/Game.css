@@ -219,9 +219,6 @@
 
 /* Ready Button */
 .ready-button {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
   padding: 12px 24px;
   border-radius: var(--border-radius-medium);
   border: none;
@@ -230,7 +227,7 @@
   transition: all 0.2s ease;
   background-color: var(--color-not-ready-bg);
   color: var(--color-not-ready-text);
-  z-index: var(--z-index-debug);
+  z-index: var(--z-index-hud-buttons);
 }
 
 .ready-button:hover {
@@ -247,6 +244,15 @@
     background-color: var(--color-ready-bg-hover);
 }
 
+.game-actions-right {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  gap: 10px;
+  z-index: var(--z-index-hud-buttons);
+}
+
 .pass-button {
   background-color: #f39c12; /* A distinct orange color */
   color: var(--color-text-light);
@@ -256,13 +262,26 @@
   background-color: #e67e22;
 }
 
+.leave-button {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  right: auto;
+  background-color: #c0392b; /* A distinct red color */
+  color: var(--color-text-light);
+}
+
+.leave-button:hover {
+  background-color: #e74c3c;
+}
+
 .debug-info {
     position: absolute;
     top: 40px;
     left: 10px;
     color: var(--color-text-light);
     font-size: 12px;
-    z-index: var(--z-index-debug);
+    z-index: var(--z-index-hud-buttons);
     text-shadow: 1px 1px 2px black;
 }
 

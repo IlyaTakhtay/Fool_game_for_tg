@@ -8,7 +8,7 @@ async def error_handling_middleware(request: Request, call_next):
         response = await call_next(request)
         return response
     except Exception as exc:
-        # Логируем ошибку (можно подключить логгер)
+        # Логируем ошибку (TODO: можно подключить логгер)
         print(f"Ошибка: {exc}")
         return JSONResponse(
             status_code=500,

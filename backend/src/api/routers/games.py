@@ -1,31 +1,51 @@
 import logging
 from uuid import uuid4
+from dishka import FromDishka
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import JSONResponse
+from dishka.integrations.fastapi import DishkaRoute
 
-from backend.src.api.dependencies import get_game_manager
+from backend.src.api.exceptions import (
+    GameNotFoundError,
+    PlayerAlreadyInGameError,
+    PlayerNotInGameError,
+)
 from backend.src.api.managers.game_manager import GameManager
 from backend.src.api.models.game import (
     GameCreatedResponse,
     GameInfoResponse,
     GameJoinedResponse,
 )
-from backend.src.game.contracts.game_contract import ActionResult, PlayerAction, PlayerInput
+from backend.src.config import AppSettings, WebSocketSettings
+from backend.src.game.contracts.game_contract import (
+    ActionResult,
+    PlayerAction,
+    PlayerInput,
+)
 from backend.src.game.models.game import FoolGame
 from backend.src.game.config.settings import DEBUG
+from backend.src.game.utils.errors import GameLogicError
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1", tags=["Games"])
+ws_settings = WebSocketSettings()
+app_settings = AppSettings()
+
+router = APIRouter(
+    prefix=f"/api/{app_settings.api_version_prefix}",
+    tags=["Games"],
+    route_class=DishkaRoute,
+)
 
 
 @router.post(
     "/create_game",
-    response_model=GameCreatedResponse,
     summary="Создать новую игру",
+    response_model=GameCreatedResponse,
     description="Создает новую игровую комнату с указанным лимитом игроков.",
 )
 async def create_game(
-    set_players_limit: int = 2, gm: GameManager = Depends(get_game_manager)
+    gm: FromDishka[GameManager],
+    set_players_limit: int = 2,
 ) -> GameCreatedResponse:
     """Создает новую игру.
 
@@ -45,7 +65,7 @@ async def create_game(
             detail="Количество игроков должно быть от 2 до 6.",
         )
 
-    game = gm.create_game(set_players_limit)
+    game = await gm.create_game(set_players_limit)
     return GameCreatedResponse(game_id=game.game_id, players_limit=set_players_limit)
 
 
@@ -56,9 +76,9 @@ async def create_game(
     description="Присоединяет игрока к существующей или новой игре. Если game_id не указан, находит доступную игру.",
 )
 async def join_game(
+    gm: FromDishka[GameManager],
     player_id: str,
     game_id: str | None = None,
-    gm: GameManager = Depends(get_game_manager),
 ) -> GameJoinedResponse:
     """Присоединяет игрока к игре.
 
@@ -73,49 +93,30 @@ async def join_game(
     Raises:
         HTTPException: Если игра не найдена, заполнена, или если игрок уже в игре.
     """
-    if game_id:
-        game = gm.get_game_by_id(game_id)
-        if not game:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Игра с ID {game_id} не найдена.",
-            )
-        if player_id in [p.id_ for p in game.players]:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT, detail="Вы уже в этой игре."
-            )
-    else:
-        game = gm.find_available_game() or gm.create_game(players_limit=2)
-        game_id = game.game_id
-
-    player_input = PlayerInput(player_id=player_id, action=PlayerAction.JOIN)
-
+    game = None
     try:
-        answer = game.handle_input(player_input)
-        if answer.result != ActionResult.SUCCESS:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT, detail=answer.message
-            )
+        game = await gm.join_game(player_id, game_id)
+    except GameNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except GameLogicError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
-        logger.error(f"Ошибка присоединения к игре: {e}", exc_info=DEBUG)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        )
+        logger.error(f"Ошибка присоединения: {e}", exc_info=DEBUG)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
-    gm.add_game_to_player(game_id, player_id)
-    gm.update_game_slots_by_id(game_id)
-    # TODO: сделать env для исправления жестко закодированного пути к серверу
     return GameJoinedResponse(
         game_id=game.game_id,
         player_id=player_id,
-        websocket_connection=f"ws://localhost:8000/api/v1/ws/{game_id}?player_id={player_id}",
+        websocket_connection=f"{ws_settings.base_url}/api/{app_settings.api_version_prefix}/ws/{game.game_id}?player_id={player_id}",
+        game_state=game.get_game_state(),
     )
 
 
 @router.post("/exit_game", summary="Выйти из игры")
 async def exit_game(
-    player_id: str, gm: GameManager = Depends(get_game_manager)
-) -> JSONResponse:
+    gm: FromDishka[GameManager],
+    player_id: str,
+) -> None:
     """Удаляет игрока из игры.
 
     Args:
@@ -123,26 +124,39 @@ async def exit_game(
         gm: Экземпляр менеджера игр.
 
     Returns:
-        JSONResponse с сообщением об успехе.
+        None
 
     Raises:
         HTTPException: Если игрок не найден ни в одной игре.
     """
-    game: FoolGame = gm.get_game_by_player_id(player_id)
-    if not game:
+    try:
+        await gm.exit_game(player_id)
+    except PlayerNotInGameError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Игрок с ID {player_id} не найден ни в одной игре.",
+            detail=str(e),
+        )
+    except GameLogicError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.error(f"Ошибка выхода из игры: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Внутренняя ошибка сервера",
         )
 
-    gm.handle_player_quit(game.game_id, player_id)
 
-    return JSONResponse(content={"message": "Успешный выход из игры"})
-
-
-@router.get("/player_game", response_model=GameInfoResponse, summary="Получить активную игру игрока")
+@router.get(
+    "/player_game",
+    response_model=GameInfoResponse,
+    summary="Получить активную игру игрока",
+)
 async def active_game(
-    player_id: str, gm: GameManager = Depends(get_game_manager)
+    gm: FromDishka[GameManager],
+    player_id: str,
 ) -> GameInfoResponse:
     """Получает активную игру для игрока.
 
@@ -156,17 +170,18 @@ async def active_game(
     Raises:
         HTTPException: Если игрок не найден ни в одной игре.
     """
-    game = gm.get_game_by_player_id(player_id)
-    if not game:
+    try:
+        game = await gm.get_player_game(player_id)
+    except PlayerNotInGameError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Игрок с ID {player_id} не найден ни в одной игре.",
+            detail=str(e),
         )
     return GameInfoResponse(
         game_id=game.game_id,
         players_limit=game.players_limit,
         players_inside=len(game.players),
-        websocket_connection=f"ws://localhost:8000/api/v1/ws/{game.game_id}?player_id={player_id}",
+        websocket_connection=f"{ws_settings.base_url}/api/{app_settings.api_version_prefix}/ws/{game.game_id}?player_id={player_id}",
     )
 
 
@@ -176,7 +191,11 @@ async def active_game(
     summary="Список доступных игр",
     description="Показывает список игр, которые еще не заполнены.",
 )
-def get_games(gm: GameManager = Depends(get_game_manager)) -> list[GameInfoResponse]:
+async def get_games(
+    gm: FromDishka[GameManager],
+    limit: int = 100,
+    offset: int = 0,
+) -> list[GameInfoResponse]:
     """Получает список доступных игр.
 
     Args:
@@ -185,12 +204,12 @@ def get_games(gm: GameManager = Depends(get_game_manager)) -> list[GameInfoRespo
     Returns:
         Список объектов GameInfoResponse.
     """
-    games: list[GameInfoResponse] = []
-    for game in gm.flatten_pending_games:
-        game_info = GameInfoResponse(
+    games = await gm.get_pending_games(limit, offset)
+    return [
+        GameInfoResponse(
             game_id=game.game_id,
             players_limit=game.players_limit,
             players_inside=len(game.players),
         )
-        games.append(game_info)
-    return games
+        for game in games
+    ]

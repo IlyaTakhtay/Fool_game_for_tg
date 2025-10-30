@@ -1,12 +1,13 @@
 import logging
 import uuid
-
 from fastapi import APIRouter, HTTPException, Request, status
 
 from backend.src.api.models.player import ResponsePlayer
+from backend.src.config import AppSettings
 
+app_settings = AppSettings()
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/v1", tags=["Auth"])
+router = APIRouter(prefix=f"/api/{app_settings.api_version_prefix}", tags=["Auth"])
 
 
 @router.post("/auth_guest", response_model=ResponsePlayer)

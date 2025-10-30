@@ -80,8 +80,8 @@ class PublicGameData(BaseModel):
     room_size: int
     room_players: list[PublicPlayerData]
     deck_size: int
-    trump_suit: str
-    trump_rank: str
+    trump_suit: str | None = None
+    trump_rank: str | None = None
     attacker_position: int
     defender_position: int | None = None
     table_cards: list[dict] = []

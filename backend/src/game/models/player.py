@@ -1,5 +1,5 @@
 import logging
-from typing import Set, Optional
+from typing import Set, Optional, Dict, Any
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
@@ -55,3 +55,18 @@ class Player:
     def clear_hand(self) -> None:
         """Очистить руку"""
         self._hand.clear()
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id_": self.id_,
+            "name": self.name,
+            "status": self.status.value,
+            "_hand": [card.to_dict() for card in self._hand],
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'Player':
+        player = cls(id_=data["id_"], name=data["name"])
+        player.status = PlayerStatus(data["status"])
+        player._hand = {Card.from_dict(card_data) for card_data in data["_hand"]}
+        return player

@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import LoadingScreen from 'components/UI/LoadingScreen';
 import ConnectionStatus from 'components/UI/ConnectionStatus';
 import Table from '../components/GameTable/Table';
@@ -13,13 +13,26 @@ import 'assets/styles/game/Game.css';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { mockGameScenarios } from '../mocks/gameMocks';
+import Modal from 'components/UI/Modal';
 
 const TOTAL_DECK_CARDS = 36;
 
 function Game() {
+  const navigate = useNavigate();
   const { game_id } = useParams();
   const location = useLocation();
-  const websocketUrl = location.state?.websocket;
+  const websocketUrl = useMemo(() => {
+    if (location.state?.websocket) {
+      return location.state.websocket;
+    }
+    
+    const playerId = sessionStorage.getItem('playerId');
+    if (!game_id || !playerId) {
+      return null;
+    }
+    
+    return `ws://localhost:8000/api/v1/ws/${game_id}?player_id=${playerId}`;
+  }, [location.state, game_id]);
   const ws = useRef(null);
 
   const [connectionStatus, setConnectionStatus] = useState('Connecting');
@@ -38,6 +51,8 @@ function Game() {
     playerStatus: 'waiting',
     yourAllowedActions: [],
   });
+
+  const [gameOverInfo, setGameOverInfo] = useState(null);
 
   const [showReadyButton, setShowReadyButton] = useState(true);
 
@@ -76,9 +91,15 @@ function Game() {
     sendWebSocketMessage({ type: 'pass_turn' });
   }, [sendWebSocketMessage]);
 
+  const handleLeaveClick = useCallback(() => {
+    sendWebSocketMessage({ type: 'quit_game' });
+    navigate('/games');
+  }, [sendWebSocketMessage, navigate]);
+
   const handleWebSocketMessage = useCallback((event) => {
     try {
       const message = JSON.parse(event.data);
+      console.log("WebSocket message received:", message);
       const currentPlayerId = sessionStorage.getItem("playerId");
 
       switch (message.type) {
@@ -133,7 +154,7 @@ function Game() {
               }))
             ].sort((a, b) => a.position - b.position);
 
-            return {
+            const newState = {
               ...prev,
               yourCards: message.data.cards || [],
               players: allPlayers,
@@ -156,6 +177,8 @@ function Game() {
               isAttacker: isCurrentPlayerAttacker,
               isDefender: isCurrentPlayerDefender
             };
+            console.log("New game state after connection_confirmed:", newState);
+            return newState;
           });
           break;
 
@@ -201,6 +224,10 @@ function Game() {
                 : p
             )
           }));
+          break;
+
+        case 'game_ended':
+          setGameOverInfo(message.data);
           break;
         
         default:
@@ -308,15 +335,18 @@ function Game() {
       <div className="card-table">
         <ConnectionStatus status={connectionStatus} isUsingMocks={isUsingMocks} />
 
-        {canPass && (
-          <button onClick={handlePassClick} className="ready-button pass-button">Пас</button>
-        )}
-        {gameState.yourAllowedActions.includes('READY') && (
-          <button onClick={handleReadyClick} className="ready-button">Готов</button>
-        )}
-        {gameState.yourAllowedActions.includes('UNREADY') && (
-          <button onClick={handleReadyClick} className="ready-button ready-button--active">Не готов</button>
-        )}
+        <button onClick={handleLeaveClick} className="ready-button leave-button">Выйти</button>
+        <div className="game-actions-right">
+          {canPass && (
+            <button onClick={handlePassClick} className="ready-button pass-button">Пас</button>
+          )}
+          {gameState.yourAllowedActions.includes('READY') && (
+            <button onClick={handleReadyClick} className="ready-button">Готов</button>
+          )}
+          {gameState.yourAllowedActions.includes('UNREADY') && (
+            <button onClick={handleReadyClick} className="ready-button ready-button--active">Не готов</button>
+          )}
+        </div>
 
         <PlayerPositionsOnTable
           players={gameState.players.filter(p => p.id !== gameState.player_id)}
@@ -359,6 +389,19 @@ function Game() {
           ))}
         </div>
       </div>
+
+      <Modal
+        isOpen={!!gameOverInfo}
+        onClose={() => setGameOverInfo(null)}
+        title="Игра окончена!"
+      >
+        {gameOverInfo && (
+          <div>
+            {gameOverInfo.winner_id && <p>Победитель: {gameOverInfo.winner_id}</p>}
+            {gameOverInfo.loser_ids && <p>Проигравшие: {gameOverInfo.loser_ids.join(', ')}</p>}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

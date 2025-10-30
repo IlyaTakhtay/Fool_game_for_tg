@@ -1,15 +1,10 @@
-# services:
-#   frontend:
-#     build:
-#       context: .
-#       dockerfile: Dockerfile.prod
-#     ports:
-#       - "8080:80" # Связываем порт 8080 на хосте с портом 80 в контейнере (Nginx)
-#     networks:
-#       - backend_fool_game_network
-#     environment:
-#       - REACT_APP_BACKEND_HOST=app
-
-# networks:
-#   backend_fool_game_network:
-#     external: true
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production

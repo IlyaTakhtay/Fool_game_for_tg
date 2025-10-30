@@ -1,6 +1,6 @@
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Any
 
-from backend.src.game.models.card import Card, TrumpCard, Rank
+from backend.src.game.models.card import Card, Suit, TrumpCard, Rank
 from backend.src.game.utils.errors import (
     InvalidDefenseError,
     WeakDefenseError,
@@ -125,3 +125,45 @@ class CardTable:
             if pair.get("defend_card"):
                 all_cards.append(pair["defend_card"])
         return all_cards
+
+    def to_dict(self) -> Dict[str, Any]:
+        serialized_table_cards = []
+        for card_pair in self.table_cards:
+            serialized_pair = {
+                "attack_card": (
+                    card_pair["attack_card"].to_dict()
+                    if card_pair["attack_card"]
+                    else None
+                ),
+                "defend_card": (
+                    card_pair["defend_card"].to_dict()
+                    if card_pair["defend_card"]
+                    else None
+                ),
+            }
+            serialized_table_cards.append(serialized_pair)
+        return {
+            "slots": self.slots,
+            "table_cards": serialized_table_cards,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any], trump_suit: Suit) -> "CardTable":
+        card_table = cls()
+        card_table.slots = data["slots"]
+        card_table.table_cards = []
+        for card_pair_data in data["table_cards"]:
+            attack_card = (
+                Card.from_dict(card_pair_data["attack_card"], trump_suit=trump_suit)
+                if card_pair_data["attack_card"]
+                else None
+            )
+            defend_card = (
+                Card.from_dict(card_pair_data["defend_card"], trump_suit=trump_suit)
+                if card_pair_data["defend_card"]
+                else None
+            )
+            card_table.table_cards.append(
+                {"attack_card": attack_card, "defend_card": defend_card}
+            )
+        return card_table

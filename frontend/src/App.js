@@ -20,18 +20,18 @@ function App() {
         <Route path="/games" element={
           <AuthRequiredRoute>
             <GamesList />
-          </ AuthRequiredRoute>
+          </AuthRequiredRoute>
           } />
           
         <Route path="/create-game" element={
           <AuthRequiredRoute>
             <CreateGame />
-          </ AuthRequiredRoute>
+          </AuthRequiredRoute>
         } />
         <Route path="/game/:game_id" element={
           <AuthRequiredRoute>
             <Game />
-          </ AuthRequiredRoute>
+          </AuthRequiredRoute>
         } /> 
         <Route path="/coming-soon" element={<ComingSoon />} />
         <Route path="/auth" element={ <AuthMenu /> } />

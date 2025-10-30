@@ -1,100 +1,104 @@
 import logging
 from uuid import uuid4
-from typing import Dict, List
+from typing import List, Set
 
-from backend.src.game.contracts.game_contract import PlayerInput, PlayerAction
+
+from backend.src.api.exceptions import (
+    GameNotFoundError,
+    PlayerAlreadyInGameError,
+    PlayerNotInGameError,
+)
+from backend.src.game.contracts.game_contract import (
+    ActionResult,
+    PlayerInput,
+    PlayerAction,
+)
 from backend.src.game.models.game import FoolGame
 from backend.src.game.states.lobby_state import LobbyState
+from backend.src.game.utils.errors import GameLogicError
+from backend.src.storage.repositories.interfaces import IGameRepository
 
 
 logger = logging.getLogger(__name__)
 
 
 class GameManager:
-    """
-    Управляет жизненным циклом игр: создание, поиск, перемещение
-    между лобби и активной фазой.
-    """
+    """Сервисный слой для управления играми"""
 
-    def __init__(self):
-        self.active_games: Dict[str, FoolGame] = {}  # Игры, которые идут
-        self.pending_games: Dict[str, FoolGame] = {}  # Игры, ожидающие игроков
-        self.player_to_game: Dict[str, str] = {}  # Связь player_id -> game_id
+    def __init__(self, game_repository: IGameRepository):
+        self._repo = game_repository
 
-    def create_game(self, players_limit: int) -> FoolGame:
-        """Создает новую игру и помещает ее в ожидание."""
-        game_id = str(uuid4())
-        game = FoolGame(game_id=game_id, players_limit=players_limit)
-        self.pending_games[game.game_id] = game
-        logger.info(f"Создана новая игра с ID: {game.game_id}")
+    async def create_game(self, players_limit: int) -> FoolGame:
+        """Создать новую игру"""
+
+        game = FoolGame(
+            game_id=str(uuid4()), players_limit=players_limit
+        )  # TODO: who responsible for game id
+        await self._repo.save(game)
+
+        logger.info(f"Creating game {game.game_id} with status: {game.status}")
+
         return game
 
-    def get_game_by_id(self, game_id: str) -> FoolGame | None:
-        """Получает игру по её ID из любого списка."""
-        logger.debug(f"Поиск игры по ID: {game_id}")
-        return self.active_games.get(game_id) or self.pending_games.get(game_id)
+    async def join_game(self, player_id: str, game_id: str | None = None) -> FoolGame:
+        """Присоединить игрока к игре"""
+        if game_id:
+            game = await self._repo.get_by_id(game_id)
+            if not game:
+                raise GameNotFoundError(f"Game {game_id} not found")
 
-    def get_game_by_player_id(self, player_id: str) -> FoolGame | None:
-        """Находит игру, в которой числится игрок."""
-        logger.debug(f"Поиск игры для игрока: {player_id}")
-        game_id = self.player_to_game.get(player_id)
-        if not game_id:
-            return None
-        return self.get_game_by_id(game_id)
+        player_input = PlayerInput(player_id=player_id, action=PlayerAction.JOIN)
+        result = game.handle_input(player_input)
 
-    def find_available_game(self) -> FoolGame | None:
-        """Находит первую доступную игру в лобби со свободным местом."""
-        for game in self.pending_games.values():
-            if not game.is_full():
-                return game
-        logger.debug("Свободных игр в лобби не найдено.")
-        return None
+        if result.result != ActionResult.SUCCESS:
+            raise GameLogicError(result.message)
 
-    def add_game_to_player(self, game_id: str, player_id: str) -> None:
-        """Привязывает ID игры к ID игрока."""
-        self.player_to_game[player_id] = game_id
-        logger.debug(f"Игрок {player_id} привязан к игре {game_id}")
+        await self._repo.save(game)
 
-    def remove_game_from_player(self, player_id: str) -> None:
-        """Удаляет привязку игрока к игре."""
-        if player_id in self.player_to_game:
-            del self.player_to_game[player_id]
-            logger.debug(f"Удалена связь для игрока {player_id}")
+        logger.info(f"Игрок {player_id} присоединился к игре {game.game_id}")
+        return game
 
-    def update_game_slots_by_id(self, game_id: str) -> None:
-        """Перемещает игру между pending и active в зависимости от ее состояния."""
-        game = self.get_game_by_id(game_id)
+    async def exit_game(self, player_id: str) -> FoolGame:
+        """Выйти из игры"""
+        game = await self._repo.find_by_player_id(player_id)
         if not game:
-            logger.warning(f"Попытка обновить несуществующую игру: {game_id}")
-            return
+            raise PlayerNotInGameError(f"Player {player_id} not in any game")
+        player_input = PlayerInput(player_id=player_id, action=PlayerAction.QUIT)
+        result = game.handle_input(player_input)
 
-        is_in_lobby = isinstance(game._current_state, LobbyState)
-        is_full = game.is_full()
+        if result.result != ActionResult.SUCCESS:
+            raise GameLogicError(result.message)
 
-        # Перемещаем в active, если игра заполнилась или вышла из лобби
-        if (is_full or not is_in_lobby) and game_id in self.pending_games:
-            self.active_games[game_id] = self.pending_games.pop(game_id)
-            logger.info(f"Игра {game_id} перемещена в active_games.")
-        # Возвращаем в pending, если освободились места и игра еще в лобби
-        elif not is_full and is_in_lobby and game_id in self.active_games:
-            self.pending_games[game_id] = self.active_games.pop(game_id)
-            logger.info(f"Игра {game_id} перемещена в pending_games.")
+        await self._repo.save(game)
+        logger.info(f"Игрок {player_id} вышел из игры {game.game_id}")
+        return game
 
-    def handle_player_quit(self, game_id: str, player_id: str):
-        """Обрабатывает выход игрока, делегируя логику ядру игры."""
-        game = self.get_game_by_id(game_id)
+    async def get_player_game(self, player_id: str) -> FoolGame:
+        """Получить игру игрока"""
+        game = await self._repo.find_by_player_id(player_id)
         if not game:
-            logger.warning(f"Игра {game_id} не найдена для выхода игрока {player_id}")
-            return
+            raise PlayerNotInGameError(f"Player {player_id} not in any game")
+        return game
 
-        # Ядро игры само изменит свое состояние
-        game.handle_input(PlayerInput(player_id=player_id, action=PlayerAction.QUIT))
+    async def get_game_by_id(self, game_id: str) -> FoolGame:
+        """Получить игру по ID"""
+        game = await self._repo.get_by_id(game_id)
+        if not game:
+            raise GameNotFoundError(f"Game {game_id} not found")
+        return game
 
-        self.remove_game_from_player(player_id)
-        self.update_game_slots_by_id(game_id)
-        logger.info(f"Выход игрока {player_id} из игры {game_id} обработан.")
+    async def get_pending_games(
+        self, limit: int = 100, offset: int = 0
+    ) -> list[FoolGame]:
+        """Получить список игр в лобби"""
+        return await self._repo.find_by_status("pending", limit, offset)
 
-    @property
-    def flatten_pending_games(self) -> List[FoolGame]:
-        """Возвращает плоский список игр, ожидающих игроков."""
-        return list(self.pending_games.values())
+    async def save_game(self, game: FoolGame):
+        """Сохранить состояние игры"""
+        await self._repo.save(game)
+        logger.debug(f"Игра {game.game_id} сохранена в Redis")
+
+    async def delete_game(self, game_id: str):
+        """Удалить игру"""
+        await self._repo.delete(game_id)
+        logger.info(f"Игра {game_id} удалена")

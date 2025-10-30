@@ -30,19 +30,29 @@ class GameOverState(GameState):
     def enter(self) -> Dict[str, Any]:
         """Определяет победителя и проигравших и возвращает информацию."""
 
-        # Находим игрока, у которого не осталось карт
-        winner: Player | None = next(
-            (p for p in self.game.players if not p.get_cards()), None
-        )
-
-        if winner:
-            self.winner_id = winner.id_
-            self.loser_ids = [p.id_ for p in self.game.players if p.id_ != winner.id_]
-            message = f"Игра окончена! Победитель: {winner.name}."
+        if self.game.loser_ids:
+            self.loser_ids = self.game.loser_ids
+            self.game.loser_ids = None  # Очищаем временное поле
         else:
-            # Случай "ничьи", если у нескольких игроков одновременно кончились карты,
-            # или если победитель не определен по какой-то причине.
-            self.loser_ids = [p.id_ for p in self.game.players]
+            # Стандартная логика определения победителя и проигравших
+            winner: Player | None = next(
+                (p for p in self.game.players if not p.get_cards()), None
+            )
+
+            if winner:
+                self.winner_id = winner.id_
+                self.loser_ids = [p.id_ for p in self.game.players if p.id_ != winner.id_]
+            else:
+                self.loser_ids = [p.id_ for p in self.game.players]
+
+        # Формируем сообщение
+        if self.winner_id:
+            winner_player = self.game.get_player_by_id(self.winner_id)
+            winner_name = winner_player.name if winner_player else "Неизвестный"
+            message = f"Игра окончена! Победитель: {winner_name}."
+        elif self.loser_ids:
+            message = f"Игра окончена! Проигравший: {', '.join(self.loser_ids)}."
+        else:
             message = "Игра окончена! Победителя нет."
 
         return {
@@ -59,6 +69,13 @@ class GameOverState(GameState):
         При любой попытке действия в законченной игре возвращает
         информативный ответ о том, что действие невозможно.
         """
+        if player_input.action == PlayerAction.QUIT:
+            self.game.players = [p for p in self.game.players if p.id_ != player_input.player_id]
+            return StateResponse(
+                ActionResult.SUCCESS,
+                f"Игрок {player_input.player_id} покинул игру.",
+            )
+
         return StateResponse(
             result=ActionResult.INVALID_ACTION,
             message="Игра уже окончена. Новые действия невозможны.",
