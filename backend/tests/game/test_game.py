@@ -169,35 +169,27 @@ def test_handle_input_invalid_state(game, mock_state):
         assert "State NonExistentState not found" in response.message
 
 
-def test_get_game_state(game_with_players, mock_state):
+def test_get_game_state(game_with_players):
     """Тест получения состояния игры"""
-    game_with_players._current_state = mock_state
     game_with_players.current_attacker_id = "1"
     game_with_players.current_defender_id = "2"
+    game_with_players.players[0].status = PlayerStatus.READY
+    game_with_players.players[1].status = PlayerStatus.UNREADY
+    game_with_players.players[2].status = PlayerStatus.UNREADY
 
     state_info = game_with_players.get_game_state()
 
-    assert state_info["current_state"] == "MockState"
-    assert "state_info" in state_info
+    assert state_info["current_state"] == "LobbyState"
+    assert state_info["room_size"] == 3
     assert len(state_info["players"]) == 3
-    assert state_info["attacker_id"] == "1"
-    assert state_info["defender_id"] == "2"
-    assert "allowed_actions" in state_info
-    mock_state.get_state_info.assert_called_once()
-    mock_state.get_allowed_actions.assert_called_once()
-
-
-def test_get_game_state_no_state(game):
-    """Тест получения состояния игры при отсутствии текущего состояния"""
-    game._current_state = None
-
-    state_info = game.get_game_state()
-
-    assert state_info["current_state"] is None
-    assert "state_info" in state_info
-    assert state_info["state_info"] == {}
-    assert "allowed_actions" in state_info
-    assert state_info["allowed_actions"] == {}
+    assert state_info["players"][0]["player_id"] == "1"
+    assert state_info["players"][0]["position"] == 1
+    assert state_info["players"][0]["status"] == PlayerStatus.READY.name.lower()
+    assert state_info["deck_size"] is not None
+    assert state_info["trump_suit"] is None  # В LobbyState еще нет козыря
+    assert state_info["attacker_position"] == 1
+    assert state_info["defender_position"] == 2
+    assert isinstance(state_info["table"], list)
 
 
 def test_determine_defender_with_players(game_with_players):

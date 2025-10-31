@@ -61,7 +61,7 @@ app = create_app()
 if __name__ == "__main__":
     app_settings = AppSettings()
     uvicorn.run(
-        "backend.src.api.main:app",
+        "backend.src.main:app",
         host=app_settings.host,
         port=app_settings.port,
         reload=app_settings.reload,

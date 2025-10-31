@@ -43,7 +43,7 @@ function AuthGuest() {
         }
 
         try {
-            const authData = await api.post(`/auth_guest?player_name=${encodeURIComponent(trimmedName)}`);
+            const authData = await api.post('/auth_guest', { player_name: trimmedName });
 
             if (authData.playerId) {
                 // Сохраняем данные авторизации

@@ -1,8 +1,8 @@
 import logging
 import uuid
 from fastapi import APIRouter, HTTPException, Request, status
+from pydantic import BaseModel
 
-from backend.src.api.models.player import ResponsePlayer
 from backend.src.config import AppSettings
 
 app_settings = AppSettings()
@@ -10,23 +10,32 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix=f"/api/{app_settings.api_version_prefix}", tags=["Auth"])
 
 
-@router.post("/auth_guest", response_model=ResponsePlayer)
-async def auth_guest(request: Request, player_name: str) -> ResponsePlayer:
+class AuthGuestRequest(BaseModel):
+    player_name: str
+
+
+class AuthGuestResponse(BaseModel):
+    player_id: str
+
+
+@router.post("/auth_guest", response_model=AuthGuestResponse)
+async def auth_guest(request: Request, body: AuthGuestRequest) -> AuthGuestResponse:
     """Аутентификация гостевого игрока.
 
     Генерирует уникальный ID игрока и возвращает его.
 
     Args:
         request: Объект запроса.
-        player_name: Имя игрока.
+        body: Тело запроса с именем игрока.
 
     Returns:
-        Объект ResponsePlayer, содержащий player_id.
+        Объект AuthGuestResponse, содержащий player_id.
 
     Raises:
         HTTPException: Если имя игрока не содержит от 2 до 20 символов.
         HTTPException: При возникновении других непредвиденных ошибок.
     """
+    player_name = body.player_name
     logger.info(
         f"Получен запрос на авторизацию гостя. Headers: {dict(request.headers)}"
     )
@@ -44,7 +53,7 @@ async def auth_guest(request: Request, player_name: str) -> ResponsePlayer:
         player_id = str(uuid.uuid4())
         logger.info(f"Создан новый игрок. ID: {player_id}, Имя: {player_name}")
 
-        response = ResponsePlayer(player_id=player_id)
+        response = AuthGuestResponse(player_id=player_id)
         logger.info(f"Отправляем ответ: {response}")
         return response
 

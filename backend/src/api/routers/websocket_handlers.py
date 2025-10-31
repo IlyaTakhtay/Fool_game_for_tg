@@ -6,18 +6,15 @@ from fastapi import WebSocket
 
 from backend.src.api.managers.connection_managaer import ConnectionManager
 from backend.src.api.managers.game_manager import GameManager
-from backend.src.api.models.websocket_models import (
-    GameOverData,
+from backend.src.api.models.websocket.responses import (
     GameOverResponse,
-    PlayerDisconnectedData,
-    PlayerDisconnectedResponse,
-    PlayerStatusChangedResponse,
-    PlayerStatusData,
-    PublicPlayerData,
-    ReconnectionData,
-    ReconnectionResponse,
-    SelfStatusUpdateData,
-    SelfStatusUpdateResponse,
+    PlayerGameStateResponse,
+)
+from backend.src.api.models.websocket.data import GameOverData
+from backend.src.api.models.websocket.requests import (
+    IncomingMessage,
+    PlayCardRequest,
+    ChangeStatusRequest,
 )
 from backend.src.game.contracts.game_contract import (
     ActionResult,
@@ -28,7 +25,7 @@ from backend.src.game.contracts.game_contract import (
 )
 from backend.src.game.models.card import Card
 from backend.src.game.models.game import FoolGame
-from backend.src.game.models.player import Player, PlayerStatus
+from backend.src.game.models.player import Player
 from backend.src.game.states.game_over import GameOverState
 from backend.src.game.utils.errors import GameLogicError, WrongTurnError
 from backend.src.game.config.settings import DEBUG
@@ -37,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 
 async def websocket_inout_resolve(
-    data: dict,
+    message: IncomingMessage,
     game_id: str,
     player_id: str,
     game: FoolGame,
@@ -49,7 +46,7 @@ async def websocket_inout_resolve(
     Определяет тип входящего WebSocket сообщения и вызывает соответствующий обработчик.
 
     Args:
-        data: Данные, полученные от клиента.
+        message: Валидированное Pydantic-сообщение от клиента.
         game_id: ID текущей игры.
         player_id: ID игрока, отправившего сообщение.
         game: Экземпляр текущей игры.
@@ -57,30 +54,29 @@ async def websocket_inout_resolve(
         cm: Экземпляр менеджера соединений.
         gm: Экземпляр менеджера игр.
     """
-    message_type = data.get("type")
-    message_data = data.get("data")
     logger.info(
-        f"Получено сообщение от {player_id} в игре {game_id}: тип={message_type}"
+        f"Получено сообщение от {player_id} в игре {game_id}: тип={message.type}"
     )
 
-    match message_type:
+    match message.type:
         case "player_connected":
             await handle_player_connected(game_id, player_id, game, websocket, cm, gm)
         case "player_disconnected":
             await handle_player_disconnected(game_id, player_id, game, cm, gm)
         case "change_status":
-            new_status = message_data.get("status")
-            await handle_player_status_changed(
-                game_id, player_id, new_status, game, cm, gm
-            )
+            if isinstance(message, ChangeStatusRequest):
+                await handle_player_status_changed(
+                    game_id, player_id, message.data.status, game, cm, gm
+                )
         case "play_card":
-            await handle_play_card(game_id, player_id, game, websocket, data, cm, gm)
+            if isinstance(message, PlayCardRequest):
+                await handle_play_card(game_id, player_id, game, message, cm, gm)
         case "pass_turn":
             await handle_pass_turn(game_id, player_id, game, cm, gm)
         case "quit_game":
             await handle_quit_game(game_id, player_id, game, cm, gm)
         case _:
-            logger.warning(f"Неизвестный тип сообщения: {message_type}")
+            logger.warning(f"Неизвестный тип сообщения: {message.type}")
 
 
 async def _broadcast_full_game_state(game: FoolGame, cm: ConnectionManager):
@@ -91,60 +87,10 @@ async def _broadcast_full_game_state(game: FoolGame, cm: ConnectionManager):
         game: Экземпляр текущей игры.
         cm: Экземпляр менеджера соединений.
     """
-    all_allowed_actions = game.get_allowed_actions()
-
     for p in game.players:
-        player_actions = all_allowed_actions.get(p.id_, [])
-        full_state_response = ReconnectionResponse(
-            data=ReconnectionData(
-                current_state=game.current_state_name,
-                status=p.status,
-                position=game.get_player_position(p.id_),
-                cards=[card.to_dict() for card in p.get_cards()],
-                allowed_actions=player_actions,
-                room_size=game.players_limit,
-                room_players=[
-                    PublicPlayerData(
-                        player_id=other_p.id_,
-                        position=game.get_player_position(other_p.id_),
-                        cards_count=len(other_p.get_cards()),
-                        status=getattr(other_p, "status", PlayerStatus.UNREADY),
-                        name=other_p.name,
-                    )
-                    for other_p in game.players
-                    if other_p.id_ != p.id_
-                ],
-                deck_size=len(game.deck),
-                trump_suit=game.deck.trump_suit if game.deck.trump_suit else None,
-                trump_rank=game.deck.trump_card.rank if game.deck.trump_card else None,
-                attacker_position=(
-                    game.get_player_position(game.current_attacker_id)
-                    if game.current_attacker_id
-                    else -1
-                ),
-                defender_position=(
-                    game.get_player_position(game.current_defender_id)
-                    if game.current_defender_id
-                    else -1
-                ),
-                table_cards=[
-                    {
-                        "attack_card": (
-                            pair.get("attack_card").to_dict()
-                            if pair.get("attack_card")
-                            else None
-                        ),
-                        "defend_card": (
-                            pair.get("defend_card").to_dict()
-                            if pair.get("defend_card")
-                            else None
-                        ),
-                    }
-                    for pair in game.game_table.table_cards
-                ],
-            )
-        )
-        await cm.send_message(p.id_, full_state_response.model_dump())
+        player_state = game.get_state_for_player(p.id_)
+        response = PlayerGameStateResponse(data=player_state)
+        await cm.send_message(p.id_, response.model_dump())
 
 
 async def reset_to_lobby_after_delay(
@@ -224,66 +170,10 @@ async def _send_full_game_state_to_player(
         player_id: ID игрока, которому отправляется состояние.
         cm: Экземпляр менеджера соединений.
     """
-    player = game.get_player_by_id(player_id)
-    if not player:
-        logger.warning(
-            f"Попытка отправить состояние несуществующему игроку {player_id}"
-        )
-        return
-
-    all_allowed_actions = game.get_allowed_actions()
-    player_actions = all_allowed_actions.get(player.id_, [])
-
-    full_state_response = ReconnectionResponse(
-        data=ReconnectionData(
-            current_state=game.current_state_name,
-            status=player.status,
-            position=game.get_player_position(player.id_),
-            cards=[card.to_dict() for card in player.get_cards()],
-            allowed_actions=player_actions,
-            room_size=game.players_limit,
-            room_players=[
-                PublicPlayerData(
-                    player_id=other_p.id_,
-                    position=game.get_player_position(other_p.id_),
-                    cards_count=len(other_p.get_cards()),
-                    status=getattr(other_p, "status", PlayerStatus.UNREADY),
-                    name=other_p.name,
-                )
-                for other_p in game.players
-                if other_p.id_ != player.id_
-            ],
-            deck_size=len(game.deck),
-            trump_suit=game.deck.trump_suit,
-            trump_rank=game.deck.trump_card.rank if game.deck.trump_card else None,
-            attacker_position=(
-                game.get_player_position(game.current_attacker_id)
-                if game.current_attacker_id
-                else -1
-            ),
-            defender_position=(
-                game.get_player_position(game.current_defender_id)
-                if game.current_defender_id
-                else -1
-            ),
-            table_cards=[
-                {
-                    "attack_card": (
-                        pair.get("attack_card").to_dict()
-                        if pair.get("attack_card")
-                        else None
-                    ),
-                    "defend_card": (
-                        pair.get("defend_card").to_dict()
-                        if pair.get("defend_card")
-                        else None
-                    ),
-                }
-                for pair in game.game_table.table_cards
-            ],
-        )
-    )
-    await cm.send_message(player.id_, full_state_response.model_dump())
+    player_state = game.get_state_for_player(player_id)
+    if player_state:
+        response = PlayerGameStateResponse(data=player_state)
+        await cm.send_message(player_id, response.model_dump())
 
 
 async def handle_player_connected(
@@ -380,21 +270,8 @@ async def handle_player_status_changed(
         if response.result != ActionResult.SUCCESS:
             raise GameLogicError(message=response.message, error_code="INVALID_ACTION")
 
-        all_allowed_actions = game.get_allowed_actions()
-        player_actions = all_allowed_actions.get(player_id, [])
-        self_update_response = SelfStatusUpdateResponse(
-            data=SelfStatusUpdateData(status=new_status, allowed_actions=player_actions)
-        )
-        await cm.send_message(player_id, self_update_response.model_dump())
-
-        status_response = PlayerStatusChangedResponse(
-            data=PlayerStatusData(player_id=player_id, status=new_status)
-        )
-        other_player_ids = [p.id_ for p in game.players if p.id_ != player_id]
-        if other_player_ids:
-            await cm.broadcast_to_players(
-                other_player_ids, status_response.model_dump()
-            )
+        # Просто транслируем всем обновленное состояние
+        await _broadcast_full_game_state(game, cm)
 
     except (GameLogicError, Exception) as e:
         logger.error(
@@ -407,8 +284,7 @@ async def handle_play_card(
     game_id: str,
     player_id: str,
     game: FoolGame,
-    websocket: WebSocket,
-    data: dict,
+    message: PlayCardRequest,
     cm: FromDishka[ConnectionManager],
     gm: FromDishka[GameManager],
 ):
@@ -419,16 +295,12 @@ async def handle_play_card(
         game_id: ID текущей игры.
         player_id: ID игрока, совершающего ход.
         game: Экземпляр текущей игры.
-        websocket: Экземпляр WebSocket соединения.
-        data: Данные, содержащие информацию о картах.
+        message: Валидированное Pydantic-сообщение с данными о картами.
         cm: Экземпляр менеджера соединений.
         gm: Экземпляр менеджера игр.
     """
-    attack_card_data = data.get("attack_card")
-    if not attack_card_data:
-        raise GameLogicError("Не указана карта для хода", "CARD_REQUIRED")
-
-    defend_card_data = data.get("defend_card")
+    attack_card_data = message.data.attack_card
+    defend_card_data = message.data.defend_card
 
     try:
         # Проверка роли игрока
@@ -444,9 +316,9 @@ async def handle_play_card(
 
         # Создание объектов карт из данных
         trump_suit = game.deck.trump_suit
-        attack_card = Card.from_dict(attack_card_data, trump_suit=trump_suit)
+        attack_card = Card.from_dict(attack_card_data.model_dump(), trump_suit=trump_suit)
         defend_card = (
-            Card.from_dict(defend_card_data, trump_suit=trump_suit)
+            Card.from_dict(defend_card_data.model_dump(), trump_suit=trump_suit)
             if defend_card_data
             else None
         )

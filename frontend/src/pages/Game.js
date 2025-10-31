@@ -67,14 +67,14 @@ function Game() {
   const sendPlayerReady = useCallback(() => {
     sendWebSocketMessage({
       type: 'change_status',
-      data: { player_id: sessionStorage.getItem('playerId'), status: 'ready' },
+      data: { status: 'ready' },
     });
   }, [sendWebSocketMessage]);
 
   const sendPlayerNotReady = useCallback(() => {
     sendWebSocketMessage({
       type: 'change_status',
-      data: { player_id: sessionStorage.getItem('playerId'), status: 'not_ready' },
+      data: { status: 'not_ready' },
     });
   }, [sendWebSocketMessage]);
 
@@ -288,7 +288,11 @@ function Game() {
     if (!isUsingMocks) {
       sendWebSocketMessage({
         type: 'play_card',
-        ...(isDefending ? { attack_card: targetBaseCard, defend_card: droppedCard } : { attack_card: droppedCard })
+        data: {
+          ...(isDefending
+            ? { attack_card: targetBaseCard, defend_card: droppedCard }
+            : { attack_card: droppedCard }),
+        },
       });
     }
 

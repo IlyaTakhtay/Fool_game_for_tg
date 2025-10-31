@@ -1,13 +1,15 @@
 import logging
+from pydantic import ValidationError, parse_obj_as
 
 from dishka import FromDishka
-from fastapi import APIRouter, Depends, Request, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from dishka.integrations.fastapi import inject
 
 from backend.src.api.exceptions import PlayerNotInGameError
 from backend.src.api.managers.game_manager import GameManager
 from backend.src.api.managers.connection_managaer import ConnectionManager
-from backend.src.api.models.websocket_models import MessageType
+from backend.src.api.models.websocket.enums import OutgoingMessageType
+from backend.src.api.models.websocket.requests import IncomingMessage
 from backend.src.api.routers.websocket_handlers import (
     _send_full_game_state_to_player,
     handle_player_disconnected,
@@ -62,23 +64,41 @@ async def websocket_game(
 
     # Уведомляем всех о подключении нового игрока
     await websocket_inout_resolve(
-        {"type": "player_connected"}, game_id, player_id, game, websocket, cm, gm
+        parse_obj_as(IncomingMessage, {"type": "player_connected"}),
+        game_id,
+        player_id,
+        game,
+        websocket,
+        cm,
+        gm,
     )
     try:
         while True:
-            data = await websocket.receive_json()
+            json_data = await websocket.receive_json()
             try:
+                message = parse_obj_as(IncomingMessage, json_data)
                 # Берем актуальное состояние игры перед ходом
                 game = await gm.get_game_by_id(game_id)
                 await websocket_inout_resolve(
-                    data, game_id, player_id, game, websocket, cm, gm
+                    message, game_id, player_id, game, websocket, cm, gm
                 )
                 # Сохраняем измененное состояние игры в Redis
                 await gm.save_game(game)
+            except ValidationError as e:
+                error_response = {
+                    "type": OutgoingMessageType.ERROR,
+                    "data": {
+                        "message": "Invalid message format",
+                        "code": "VALIDATION_ERROR",
+                        "details": e.errors(),
+                    },
+                }
+                logger.warning(f"Ошибка валидации для {player_id}: {e}")
+                await websocket.send_json(error_response)
             except GameLogicError as e:
                 # Отправка специфичной ошибки игровой логики клиенту
                 error_response = {
-                    "type": MessageType.ERROR,
+                    "type": OutgoingMessageType.ERROR,
                     "data": {
                         "message": str(e),
                         "code": getattr(e, "error_code", "GAME_LOGIC_ERROR"),
@@ -97,7 +117,7 @@ async def websocket_game(
                 error_code = e.__class__.__name__ if DEBUG else "UNEXPECTED_ERROR"
                 await websocket.send_json(
                     {
-                        "type": MessageType.ERROR,
+                        "type": OutgoingMessageType.ERROR,
                         "data": {"message": error_message, "code": error_code},
                     }
                 )

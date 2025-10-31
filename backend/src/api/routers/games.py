@@ -66,7 +66,7 @@ async def create_game(
         )
 
     game = await gm.create_game(set_players_limit)
-    return GameCreatedResponse(game_id=game.game_id, players_limit=set_players_limit)
+    return GameCreatedResponse(game_id=game.game_id)
 
 
 @router.post(

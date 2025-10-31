@@ -183,25 +183,39 @@ class FoolGame(Game):
         Returns:
             Dict[str, Any]: Полная информация о состоянии игры
         """
-        state_info = self._current_state.get_state_info() if self._current_state else {}
-
         return {
-            "current_state": (
-                self._current_state.__class__.__name__ if self._current_state else None
-            ),
-            "state_info": state_info,
-            "players": [
-                {"id": p.id_, "name": p.name, "cards_count": len(p.get_cards())}
+            "current_state": self.current_state_name,
+            "room_size": self.players_limit,
+            "room_players": [
+                {
+                    "player_id": p.id_,
+                    "position": self.get_player_position(p.id_),
+                    "cards_count": len(p.get_cards()),
+                    "status": p.status.name.lower(),
+                    "name": p.name,
+                }
                 for p in self.players
             ],
-            "trump_card": str(self.deck.trump_card) if self.deck.trump_card else None,
-            "table_cards": [str(card) for card in self.game_table.table_cards],
-            "deck_remaining": len(self.deck) if self.deck else None,
-            "attacker_id": self.current_attacker_id,
-            "defender_id": self.current_defender_id,
-            "allowed_actions": (
-                self._current_state.get_allowed_actions() if self._current_state else {}
-            ),
+            "deck_size": len(self.deck),
+            "trump_suit": self.deck.trump_suit.value if self.deck.trump_suit else None,
+            "trump_rank": str(self.deck.trump_card.rank.value)
+            if self.deck.trump_card
+            else None,
+            "attacker_position": self.get_player_position(self.current_attacker_id)
+            if self.current_attacker_id
+            else -1,
+            "defender_position": self.get_player_position(self.current_defender_id)
+            if self.current_defender_id
+            else -1,
+            "table_cards": [
+                {
+                    "attack_card": pair["attack_card"].to_dict(),
+                    "defend_card": pair.get("defend_card").to_dict()
+                    if pair.get("defend_card")
+                    else None,
+                }
+                for pair in self.game_table.table_cards
+            ],
         }
 
     def is_full(self):
@@ -234,6 +248,26 @@ class FoolGame(Game):
             return self._current_state.get_allowed_actions()
         # Return a default (e.g., only QUIT) if no state or method exists
         return {p.id_: [PlayerAction.QUIT.name] for p in self.players}
+
+    def get_state_for_player(self, player_id: str) -> Dict[str, Any]:
+        """Возвращает полное состояние игры для конкретного игрока."""
+        player = self.get_player_by_id(player_id)
+        if not player:
+            # Or raise an error, depending on desired behavior
+            return {}
+
+        all_allowed_actions = self.get_allowed_actions()
+        player_actions = all_allowed_actions.get(player.id_, [])
+
+        public_state = self.get_game_state()
+
+        return {
+            **public_state,
+            "status": player.status.name.lower(),
+            "position": self.get_player_position(player.id_),
+            "cards": [card.to_dict() for card in player.get_cards()],
+            "allowed_actions": player_actions,
+        }
 
     def to_dict(self) -> Dict[str, Any]:
         return {
