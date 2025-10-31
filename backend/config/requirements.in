@@ -10,3 +10,4 @@ websockets
 sse_starlette
 dishka
 pydantic-settings
+lz4
