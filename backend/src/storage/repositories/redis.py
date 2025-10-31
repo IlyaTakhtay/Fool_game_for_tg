@@ -3,6 +3,7 @@ import msgspec.msgpack
 from redis.asyncio import Redis
 from typing import Dict, Any, List
 import logging
+from backend.src.adapters.persistence.redis import RedisFoolGameAdapter
 from backend.src.storage.repositories.interfaces import IGameRepository
 from backend.src.game.models.game import FoolGame
 
@@ -12,8 +13,6 @@ logger = logging.getLogger(__name__)
 class RedisGameRepository(IGameRepository):
     def __init__(self, client: Redis):
         self.client: Redis = client
-        self.encoder = msgspec.msgpack.Encoder()
-        self.decoder = msgspec.msgpack.Decoder(type=Dict[str, Any])
 
     async def get_by_id(self, game_id: str) -> FoolGame | None:
         """Получить игру по ID"""
@@ -21,8 +20,7 @@ class RedisGameRepository(IGameRepository):
         if not data:
             return None
         try:
-            decoded = self.decoder.decode(data)
-            return FoolGame.from_dict(decoded)
+            return RedisFoolGameAdapter.decode(data)
         except Exception as e:
             logger.error(f"Failed to decode game {game_id}: {e}")
             return None
@@ -33,8 +31,8 @@ class RedisGameRepository(IGameRepository):
         old_player_ids = {p.id_ for p in old_game.players} if old_game else set()
         current_player_ids = {p.id_ for p in game.players}
 
-        encoded = self.encoder.encode(game.to_dict())
-
+        # encoded = self.encoder.encode(game.to_dict())
+        encoded = RedisFoolGameAdapter.encode(game)
         async with self.client.pipeline(transaction=False) as pipe:
             pipe.set(f"game:{game.game_id}", encoded)
 
@@ -95,8 +93,7 @@ class RedisGameRepository(IGameRepository):
         for data in results:
             if data:
                 try:
-                    decoded_data = self.decoder.decode(data)
-                    game = FoolGame.from_dict(decoded_data)
+                    game = RedisFoolGameAdapter.decode(data)
                     games.append(game)
                 except Exception as e:
                     logger.error(f"Failed to decode game: {e}")
