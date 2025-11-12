@@ -4,13 +4,6 @@ from typing import Literal
 from pydantic_settings import BaseSettings
 
 
-class StorageType(str, Enum):
-    """Типы поддерживаемых хранилищ"""
-
-    REDIS = "redis"
-    # POSTGRES = "postgres"
-
-
 class AppSettings(BaseSettings):
     """Общие настройки приложения"""
 

@@ -1,69 +1,90 @@
-from dishka import AsyncContainer, Provider, make_async_container, provide, Scope
-from redis.asyncio import Redis
 from collections.abc import AsyncIterator
+from typing import Annotated, Final, Type
+
+from dishka import (
+    AsyncContainer,
+    FromComponent,
+    Provider,
+    Scope,
+    make_async_container,
+    provide,
+)
+from redis.asyncio import Redis
+
 from backend.src.api.managers.connection_managaer import ConnectionManager
 from backend.src.api.managers.game_manager import GameManager
-from backend.src.config import RedisSettings, StorageSettings
+from backend.src.config import AppSettings, RedisSettings
 from backend.src.storage.repositories.interfaces import IGameRepository
 from backend.src.storage.repositories.redis import RedisGameRepository
 
 
-class StorageProvider(Provider): #TODO: make it real strorage provider by different databases not only cover on redis
-    @provide(scope=Scope.APP)
-    def get_storage_settings(
-        self,
-    ) -> StorageSettings:
-        settings: StorageSettings = RedisSettings()
-        return settings
+class Components:
+    """Названия компонентов для DI"""
+
+    GAME = "game"
+    USER = "user"
+    CACHE = "cache"
+
+
+class RedisClientProvider(Provider):
+    """Предоставляет настройки и асинхронный клиент Redis."""
 
     @provide(scope=Scope.APP)
-    async def get_storage_client(
-        self,
-        redis_settings: StorageSettings,
-    ) -> AsyncIterator[Redis]:
+    def get_redis_settings(self) -> RedisSettings:
+        """Предоставляет настройки подключения к Redis."""
+        return RedisSettings()
+
+    @provide(scope=Scope.APP)
+    async def get_redis_client(self, settings: RedisSettings) -> AsyncIterator[Redis]:
+        """Предоставляет асинхронный клиент Redis, управляя его жизненным циклом."""
         client = Redis.from_url(
-            redis_settings.redis_url,
-            password=redis_settings.redis_password,
-            decode_responses=redis_settings.redis_decode_responses,
+            settings.redis_url,
+            password=settings.redis_password,
+            decode_responses=settings.redis_decode_responses,
         )
         yield client
         await client.aclose()
 
 
-class GameProvider(Provider):
-    """Зависимости для игрового домена"""
+class GameRepositoryProvider(Provider):
+    """Предоставляет реализацию репозитория игр."""
+
+    component = Components.GAME
 
     @provide(scope=Scope.APP)
-    def get_game_repository(
-        self,
-        redis: Redis,
-    ) -> IGameRepository:
-        """Репозиторий игр"""
+    def get_game_repository(self, redis: Redis) -> IGameRepository:
+        """Предоставляет экземпляр `RedisGameRepository`."""
         return RedisGameRepository(client=redis)
+
+
+class GameProvider(Provider):
+    """Предоставляет сервисы игрового домена."""
 
     @provide(scope=Scope.APP)
     def get_game_service(
         self,
-        game_repository: IGameRepository,
+        game_repository: Annotated[IGameRepository, FromComponent(Components.GAME)],
     ) -> GameManager:
-        """Сервис с бизнес-логикой игр"""
+        """Предоставляет экземпляр `GameManager`, инкапсулирующий бизнес-логику игры."""
         return GameManager(game_repository)
 
 
 class WebSocketProvider(Provider):
-    """Зависимости для WebSocket"""
+    """Предоставляет зависимости, связанные с WebSocket."""
 
     @provide(scope=Scope.APP)
     def get_connection_manager(
         self,
     ) -> ConnectionManager:
-        """Менеджер WebSocket соединений (синглтон)"""
+        """Предоставляет синглтон `ConnectionManager` для WebSocket-соединений."""
         return ConnectionManager()
 
 
 def create_container() -> AsyncContainer:
+    """Создает и конфигурирует контейнер внедрения зависимостей Dishka."""
     return make_async_container(
-        StorageProvider(),
+        RedisClientProvider(),
+        GameRepositoryProvider(),
         GameProvider(),
         WebSocketProvider(),
     )

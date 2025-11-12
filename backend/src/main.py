@@ -44,7 +44,8 @@ def create_app() -> FastAPI:
     )
 
     # Setup DI
-    setup_dishka(container=create_container(), app=app)
+    container = create_container()
+    setup_dishka(container=container, app=app)
 
     # Setup middlewares
     cors_settings = CorsSettings()
