@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, List, Optional, Union
 from fastapi import WebSocket
+from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +18,11 @@ class ConnectionManager:
         Атрибуты:
             connections (dict): Словарь вида {player_id: websocket},
                               где хранится информация о подключениях игроков.
+            subscriptions (dict): Словарь вида {player_id: consumer_tag},
+                                  где хранится информация о подписках RabbitMQ.
         """
         self.connections: dict[str, WebSocket] = {}  # {player_id: websocket}
+        self.subscriptions: dict[str, str] = {} # {player_id: consumer_tag}
 
     async def connect(self, player_id: str, websocket: WebSocket):
         """
@@ -60,7 +64,42 @@ class ConnectionManager:
         """
         if player_id in self.connections:
             self.connections.pop(player_id)
+            self.remove_player_subscription(player_id) # Also remove subscription info
             logger.info(f"Игрок {player_id} отключен")
+
+    def set_player_subscription(self, player_id: str, consumer_tag: str):
+        """
+        Сохраняет информацию о подписке RabbitMQ для игрока.
+
+        Args:
+            player_id (str): Уникальный идентификатор игрока.
+            consumer_tag (str): Тег потребителя RabbitMQ.
+        """
+        self.subscriptions[player_id] = consumer_tag
+        logger.debug(f"Подписка RabbitMQ для игрока {player_id} сохранена: {consumer_tag}")
+
+    def get_player_subscription(self, player_id: str) -> Optional[str]:
+        """
+        Возвращает информацию о подписке RabbitMQ для игрока.
+
+        Args:
+            player_id (str): Уникальный идентификатор игрока.
+
+        Returns:
+            Optional[str]: consumer_tag или None, если подписка не найдена.
+        """
+        return self.subscriptions.get(player_id)
+
+    def remove_player_subscription(self, player_id: str):
+        """
+        Удаляет информацию о подписке RabbitMQ для игрока.
+
+        Args:
+            player_id (str): Уникальный идентификатор игрока.
+        """
+        if player_id in self.subscriptions:
+            self.subscriptions.pop(player_id)
+            logger.debug(f"Подписка RabbitMQ для игрока {player_id} удалена.")
 
     async def broadcast_to_players(
         self,

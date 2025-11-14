@@ -2,12 +2,12 @@ import logging
 from uuid import uuid4
 from typing import List, Set
 
-
 from backend.src.api.exceptions import (
     GameNotFoundError,
     PlayerAlreadyInGameError,
     PlayerNotInGameError,
 )
+from backend.src.api.models.websocket.responses import PlayerGameStateResponse, GameOverResponse
 from backend.src.game.contracts.game_contract import (
     ActionResult,
     PlayerInput,
@@ -16,6 +16,9 @@ from backend.src.game.contracts.game_contract import (
 from backend.src.game.models.game import FoolGame
 from backend.src.game.states.lobby_state import LobbyState
 from backend.src.game.utils.errors import GameLogicError
+from backend.src.messaging.abstractions import AbstractEventBus
+from backend.src.messaging.events import PlayerJoinedEvent, GameStateChangedEvent, GameOverEvent
+from backend.src.messaging.rabbitmq.subscription_manager import SubscriptionManager
 from backend.src.storage.repositories.interfaces import IGameRepository
 
 
@@ -25,8 +28,15 @@ logger = logging.getLogger(__name__)
 class GameManager:
     """Сервисный слой для управления играми"""
 
-    def __init__(self, game_repository: IGameRepository):
-        self._repo = game_repository
+    def __init__(
+        self,
+        game_repository: IGameRepository,
+        event_bus: AbstractEventBus,
+        subscription_manager: SubscriptionManager,
+    ):
+        self._repo: IGameRepository = game_repository
+        self._event_bus: AbstractEventBus = event_bus
+        self._sm: SubscriptionManager = subscription_manager
 
     async def create_game(self, players_limit: int) -> FoolGame:
         """Создать новую игру"""
@@ -54,6 +64,14 @@ class GameManager:
             raise GameLogicError(result.message)
 
         await self._repo.save(game)
+
+        # Create a persistent queue for the player
+        await self._sm.create_and_bind_queue(player_id, game.game_id)
+
+        event = PlayerJoinedEvent(player_id=player_id, game_id=game.game_id)
+        await self._event_bus.publish(
+            routing_key=f"game.{game.game_id}.player_joined", event=event
+        )
 
         logger.info(f"Игрок {player_id} присоединился к игре {game.game_id}")
         return game
@@ -97,6 +115,28 @@ class GameManager:
         """Сохранить состояние игры"""
         await self._repo.save(game)
         logger.debug(f"Игра {game.game_id} сохранена в Redis")
+
+    async def publish_game_state_changed_event(self, game: FoolGame):
+        """Публикует событие изменения состояния игры в шину событий."""
+        event = GameStateChangedEvent(game_id=game.game_id)
+        await self._event_bus.publish(
+            routing_key=f"game.{game.game_id}.state_changed",
+            event=event,
+        )
+        logger.debug(f"Опубликовано событие изменения состояния для игры {game.game_id}")
+
+    async def publish_game_over_event(self, game: FoolGame, winner_id: str, loser_ids: List[str]):
+        """Публикует событие окончания игры в шину событий."""
+        event = GameOverEvent(
+            game_id=game.game_id,
+            winner_id=winner_id,
+            loser_ids=loser_ids,
+        )
+        await self._event_bus.publish(
+            routing_key=f"game.{game.game_id}.game_over",
+            event=event,
+        )
+        logger.info(f"Опубликовано событие окончания игры {game.game_id}")
 
     async def delete_game(self, game_id: str):
         """Удалить игру"""

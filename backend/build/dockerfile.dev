@@ -1,4 +1,3 @@
-
 FROM python:3.12
 
 WORKDIR /app
@@ -7,8 +6,8 @@ COPY ./config/requirements-dev.txt /app/requirements.txt
 
 RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
 
-COPY ./src /app/backend/src
+COPY . /app
 
-ENV PYTHONPATH=/app
+EXPOSE 8000
 
-CMD ["uvicorn", "backend.src.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "backend.src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

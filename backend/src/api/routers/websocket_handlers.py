@@ -79,20 +79,6 @@ async def websocket_inout_resolve(
             logger.warning(f"Неизвестный тип сообщения: {message.type}")
 
 
-async def _broadcast_full_game_state(game: FoolGame, cm: ConnectionManager):
-    """
-    Транслирует полное состояние игры всем игрокам в комнате.
-
-    Args:
-        game: Экземпляр текущей игры.
-        cm: Экземпляр менеджера соединений.
-    """
-    for p in game.players:
-        player_state = game.get_state_for_player(p.id_)
-        response = PlayerGameStateResponse(data=player_state)
-        await cm.send_message(p.id_, response.model_dump())
-
-
 async def reset_to_lobby_after_delay(
     game: FoolGame,
     delay: int,
@@ -115,7 +101,7 @@ async def reset_to_lobby_after_delay(
         )
         game.reset_to_lobby()
         await gm.save_game(game)
-        await _broadcast_full_game_state(game, cm)
+        await gm.publish_game_state_changed_event(game)
 
 
 async def _handle_state_transition(
@@ -141,39 +127,18 @@ async def _handle_state_transition(
             logger.error(
                 f"Состояние {transition.new_state}, но тип объекта {type(game_over_state)}!"
             )
-            await _broadcast_full_game_state(game, cm)
+            await gm.save_game(game) # Save game state even if type is wrong
+            await gm.publish_game_state_changed_event(game)
             return
 
-        game_over_response = GameOverResponse(
-            data=GameOverData(
-                winner_id=game_over_state.winner_id,
-                loser_ids=game_over_state.loser_ids,
-            )
+        await gm.save_game(game) # Save game state after game over
+        await gm.publish_game_over_event(
+            game, game_over_state.winner_id, game_over_state.loser_ids
         )
-        all_player_ids = [p.id_ for p in game.players]
-        await cm.broadcast_to_players(all_player_ids, game_over_response.model_dump())
         asyncio.create_task(reset_to_lobby_after_delay(game, 3, cm, gm))
     else:
-        await _broadcast_full_game_state(game, cm)
-
-
-async def _send_full_game_state_to_player(
-    game: FoolGame,
-    player_id: str,
-    cm: FromDishka[ConnectionManager],
-):
-    """
-    Отправляет полное состояние игры конкретному игроку.
-
-    Args:
-        game: Экземпляр текущей игры.
-        player_id: ID игрока, которому отправляется состояние.
-        cm: Экземпляр менеджера соединений.
-    """
-    player_state = game.get_state_for_player(player_id)
-    if player_state:
-        response = PlayerGameStateResponse(data=player_state)
-        await cm.send_message(player_id, response.model_dump())
+        await gm.save_game(game) # Save game state for other transitions
+        await gm.publish_game_state_changed_event(game)
 
 
 async def handle_player_connected(
@@ -199,7 +164,7 @@ async def handle_player_connected(
     if not player:
         logger.warning(f"Игрок {player_id} не найден в игре {game_id}")
         return
-    await _broadcast_full_game_state(game, cm)
+    await gm.publish_game_state_changed_event(game)
 
 
 async def handle_player_disconnected(
@@ -230,7 +195,8 @@ async def handle_player_disconnected(
     # и корректно продолжить игру, когда он вернется.
     updated_game = await gm.get_game_by_id(game_id)
     if updated_game:
-        await _broadcast_full_game_state(updated_game, cm)
+        await gm.save_game(updated_game)
+        await gm.publish_game_state_changed_event(updated_game)
 
 
 async def handle_player_status_changed(
@@ -271,7 +237,8 @@ async def handle_player_status_changed(
             raise GameLogicError(message=response.message, error_code="INVALID_ACTION")
 
         # Просто транслируем всем обновленное состояние
-        await _broadcast_full_game_state(game, cm)
+        await gm.save_game(game)
+        await gm.publish_game_state_changed_event(game)
 
     except (GameLogicError, Exception) as e:
         logger.error(
@@ -316,7 +283,9 @@ async def handle_play_card(
 
         # Создание объектов карт из данных
         trump_suit = game.deck.trump_suit
-        attack_card = Card.from_dict(attack_card_data.model_dump(), trump_suit=trump_suit)
+        attack_card = Card.from_dict(
+            attack_card_data.model_dump(), trump_suit=trump_suit
+        )
         defend_card = (
             Card.from_dict(defend_card_data.model_dump(), trump_suit=trump_suit)
             if defend_card_data
@@ -340,7 +309,8 @@ async def handle_play_card(
         elif (
             isinstance(answer, StateResponse) and answer.result == ActionResult.SUCCESS
         ):
-            await _broadcast_full_game_state(game, cm)
+            await gm.save_game(game)
+            await gm.publish_game_state_changed_event(game)
         else:
             raise GameLogicError(answer.message, "PLAY_CARD_ERROR")
 
@@ -381,7 +351,8 @@ async def handle_pass_turn(
         elif (
             isinstance(answer, StateResponse) and answer.result == ActionResult.SUCCESS
         ):
-            await _broadcast_full_game_state(game, cm)
+            await gm.save_game(game)
+            await gm.publish_game_state_changed_event(game)
         else:
             raise GameLogicError(answer.message, "PASS_TURN_ERROR")
     except (GameLogicError, Exception) as e:
@@ -415,6 +386,7 @@ async def handle_quit_game(
 
         if len(game.players) == 0:
             await gm.delete_game(game.game_id)
+            await gm._sm.delete_queue(player_id) # Delete queue when player quits and game is empty
             logger.info(f"Игра {game.game_id} удалена, так как последний игрок вышел.")
             return
 
@@ -422,7 +394,11 @@ async def handle_quit_game(
             await _handle_state_transition(game, response, cm, gm)
         else:
             # В случае, если не произошел переход состояния, просто обновим всех
-            await _broadcast_full_game_state(game, cm)
+            await gm.save_game(game)
+            await gm.publish_game_state_changed_event(game)
+        
+        await gm._sm.delete_queue(player_id) # Delete queue when player quits
+
 
     except (GameLogicError, Exception) as e:
         logger.error(
