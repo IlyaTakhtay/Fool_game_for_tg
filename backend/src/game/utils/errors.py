@@ -1,21 +1,17 @@
-# В начале файла или в отдельном модуле errors.py
-class CardGameError(Exception):
-    """Базовый класс для всех ошибок карточной игры"""
-    pass
 
-class GameLogicError(CardGameError):
+class GameLogicError(Exception):
     """Ошибка игровой логики"""
     def __init__(self, message: str, error_code: str):
         self.message = message
         self.error_code = error_code
         super().__init__(self.message)
 
-class CardNotOnTableError(CardGameError):
+class CardNotOnTableError(GameLogicError):
     """Ошибка: попытка взаимодействия с картой, которой нет на столе"""
     def __init__(self, card=None, message=None):
         self.card = card
         self.message = message or f"Карта {card} отсутствует на столе"
-        super().__init__(self.message)
+        super().__init__(self.message, error_code="CARD_NOT_ON_TABLE")
 
 class InvalidDefenseError(GameLogicError):
     """Ошибка: некорректная защита"""

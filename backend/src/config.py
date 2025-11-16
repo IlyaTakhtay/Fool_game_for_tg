@@ -1,30 +1,28 @@
 from uuid import uuid4
 from abc import ABC, abstractmethod
-from enum import Enum
 from typing import Literal
-from pydantic_settings import BaseSettings
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AppSettings(BaseSettings):
     """Общие настройки приложения"""
 
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="APP_", extra="ignore"
+    )
+
     name: str = "Game API"
     debug: bool = False
     environment: Literal["development", "staging", "production"] = "development"
-    log_level: str = "INFO"
     api_version_prefix: str = "v1"
     host: str = "0.0.0.0"
     port: int = 8000
     reload: bool = False
-    worker_id: str = str(uuid4())
-
-    class Config:
-        env_file = ".env"
-        env_prefix = "APP_"
-        extra = "ignore"
+    worker_id: str = Field(default_factory=lambda: str(uuid4()))
 
 
-class StorageSettings(BaseSettings, ABC):
+class StorageSettings(ABC):
     """Абстрактные настройки хранилища"""
 
     @abstractmethod
@@ -35,8 +33,12 @@ class StorageSettings(BaseSettings, ABC):
 class RedisSettings(BaseSettings):
     """Настройки Redis для кеша и хранилища игр"""
 
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="REDIS_", extra="ignore"
+    )
+
     host: str = "redis"
-    port: str = "6379"
+    port: int = 6379
     password: str | None = "qwezxc"
     db: int = 0
     max_connections: int = 10
@@ -50,14 +52,13 @@ class RedisSettings(BaseSettings):
             return f"redis://:{self.password}@{self.host}:{self.port}"
         return f"redis://{self.host}:{self.port}"
 
-    class Config:
-        env_file = ".env"
-        env_prefix = "REDIS_"
-        extra = "ignore"
 
-
-class PostgresSettings(StorageSettings):
+class PostgresSettings(BaseSettings, StorageSettings):
     """Настройки PostgreSQL"""
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="POSTGRES_", extra="ignore"
+    )
 
     user: str = "postgres"
     password: str = "postgres"
@@ -76,14 +77,13 @@ class PostgresSettings(StorageSettings):
     def get_connection_string(self) -> str:
         return self.postgres_url
 
-    class Config:
-        env_file = ".env"
-        env_prefix = "POSTGRES_"
-        extra = "ignore"
-
 
 class CorsSettings(BaseSettings):
     """Настройки CORS"""
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="CORS_", extra="ignore"
+    )
 
     allow_origins: list[str] = [
         "http://localhost:3000",
@@ -92,44 +92,10 @@ class CorsSettings(BaseSettings):
         "http://localhost:3001",
     ]
 
-    class Config:
-        env_file = ".env"
-        env_prefix = "CORS_"
-        extra = "ignore"
-
 
 class WebSocketSettings(BaseSettings):
     """Настройки WebSocket"""
 
+    model_config = SettingsConfigDict(env_file=".env", env_prefix="WS_", extra="ignore")
+
     base_url: str = "ws://localhost:8000"
-
-    class Config:
-        env_file = ".env"
-        env_prefix = "WS_"
-        extra = "ignore"
-
-
-class RabbitMQSettings(StorageSettings):
-    "Настройки для брокера сообщений RabbitMQ"
-
-    user: str = "guest"
-    password: str = "guest"
-    host: str = "rabbitmq"
-    port: int = 5672
-    exchange_name: str = "socket_events_exchange"
-
-    @property
-    def rabbitmq_url(self) -> str:
-        """Формируем URL для подключения"""
-        return (
-            f"amqp://{self.user}:{self.password}@"
-            f"{self.host}:{self.port}/"
-        )
-
-    def get_connection_string(self) -> str:
-        return self.rabbitmq_url
-
-    class Config:
-        env_file = ".env"
-        env_prefix = "RABBITMQ_"
-        extra = "ignore"
