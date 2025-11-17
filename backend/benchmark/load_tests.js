@@ -14,21 +14,24 @@ export const options = {
   scenarios: {
     game_pairs: {
       executor: 'per-vu-iterations',
-      vus: 10,
+      vus: 100,           // 100 VU = 50 игр (по 2 игрока)
       iterations: 1,
       maxDuration: '3m',
     },
   },
   thresholds: {
     error_messages: ['rate<0.1'],
-    games_completed: ['count>4'],
+    games_completed: ['count>49'], // Expecting 50 games to complete
+    // WebSocket RPS thresholds
+    messages_sent: ['rate>20'],     // At least 20 messages sent per second
+    messages_received: ['rate>20'], // At least 20 messages received per second
   },
 };
 
 const BASE_URL = 'http://localhost:8000/api/v1';
 
 export function setup() {
-  const pairCount = 5;
+  const pairCount = 50;
   const gameIds = [];
   console.log(`\n=== SETUP: creating ${pairCount} games ===`);
   for (let i = 0; i < pairCount; i++) {
@@ -83,7 +86,7 @@ export default function (data) {
       console.log(`✓ [${pairLabel}] WS CONNECTED`);
       socket.send(JSON.stringify({ type: 'player_connected' }));
       messagesSent.add(1);
-      turnInterval = socket.setInterval(takeTurn, 1000);
+      turnInterval = socket.setInterval(takeTurn, 50);
     });
 
     socket.on('message', (data) => {
@@ -210,8 +213,8 @@ export default function (data) {
 
   let waitCounter = 0;
   while (!isSocketClosed && waitCounter < 180) {
-    sleep(1);
-    waitCounter++;
+    sleep(0.1);
+    waitCounter+= 0.1;
   }
 }
 

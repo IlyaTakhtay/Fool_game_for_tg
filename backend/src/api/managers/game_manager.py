@@ -43,19 +43,19 @@ class GameManager:
         if not game_id:
             raise NotImplementedError("Поиск открытой игры еще не реализован")
 
-        # async with self._repo.client.lock(f"lock:game:{game_id}", timeout=10):
-        game = await self._repo.get_by_id(game_id)
-        if not game:
-            raise GameNotFoundError(f"Игра {game_id} не найдена")
+        async with self._repo.client.lock(f"lock:game:{game_id}", timeout=10):
+            game = await self._repo.get_by_id(game_id)
+            if not game:
+                raise GameNotFoundError(f"Игра {game_id} не найдена")
 
-        player_input = PlayerInput(player_id=player_id, action=PlayerAction.JOIN)
-        result = game.handle_input(player_input)
+            player_input = PlayerInput(player_id=player_id, action=PlayerAction.JOIN)
+            result = game.handle_input(player_input)
 
-        if result.result != ActionResult.SUCCESS:
-            raise GameLogicError(result.message, result.result)
+            if result.result != ActionResult.SUCCESS:
+                raise GameLogicError(result.message, result.result)
 
-        await self._repo.save(game)
-        await self.publish_full_game_state(game)
+            await self._repo.save(game)
+            await self.publish_full_game_state(game)
 
         logger.info(f"Игрок {player_id} присоединился к игре {game.game_id}")
         return game
