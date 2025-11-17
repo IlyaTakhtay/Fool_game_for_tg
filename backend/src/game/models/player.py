@@ -48,7 +48,7 @@ class Player:
             self._hand.remove(card)
         except KeyError:
             logger.error(
-                f"Карта {card} не найдена в руке у игрока {self.id_}", exc_info=False
+                f"Карта {card} не найдена в руке у игрока {self.id_}", exc_info=True
             )
             raise ValueError("Card is not in hand")
 
@@ -65,7 +65,7 @@ class Player:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'Player':
+    def from_dict(cls, data: Dict[str, Any]) -> "Player":
         player = cls(id_=data["id_"], name=data["name"])
         player.status = PlayerStatus(data["status"])
         player._hand = {Card.from_dict(card_data) for card_data in data["_hand"]}

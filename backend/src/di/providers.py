@@ -2,7 +2,11 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 
 import aio_pika
-from aio_pika.abc import AbstractRobustChannel, AbstractRobustConnection
+from aio_pika.abc import (
+    AbstractRobustChannel,
+    AbstractRobustConnection,
+    AbstractExchange,
+)
 from dishka import (
     AsyncContainer,
     FromComponent,
@@ -36,7 +40,7 @@ class RabbitMQProvider(Provider):
     """Предоставляет все зависимости для работы с RabbitMQ."""
 
     @provide(scope=Scope.APP)
-    def get_rabbit_settings(self) -> RabbitMQSettings:
+    def get_settings(self) -> RabbitMQSettings:
         return RabbitMQSettings()
 
     @provide(scope=Scope.APP)
@@ -55,10 +59,22 @@ class RabbitMQProvider(Provider):
             yield channel
 
     @provide(scope=Scope.APP)
-    async def get_event_bus(
+    async def get_exchange(
         self, channel: AbstractRobustChannel, settings: RabbitMQSettings
+    ) -> AbstractExchange:
+        """Декларирует exchange один раз при старте приложения."""
+        return await channel.declare_exchange(
+            name=settings.exchange_name,
+            type=aio_pika.ExchangeType.TOPIC,
+            durable=True,
+        )
+
+    @provide(scope=Scope.APP)
+    def get_event_bus(
+        self, channel: AbstractRobustChannel, exchange: AbstractExchange
     ) -> AbstractEventBus:
-        return await RabbitMQEventBus(channel, settings.exchange_name)
+        """Создаёт EventBus с готовыми зависимостями."""
+        return RabbitMQEventBus(channel, exchange)
 
 
 class RedisClientProvider(Provider):

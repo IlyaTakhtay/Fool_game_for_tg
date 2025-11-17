@@ -52,13 +52,13 @@ class DistributedConnectionManager:
     async def disconnect(self, player_id: str):
         """Полный цикл отключения и очистки ресурсов."""
         if player_id in self.connections:
+            conn_data = self.connections.pop(player_id)
             await self.event_bus.unsubscribe_from_game_events(
                 conn_data.consumer_tag, conn_data.queue
             )
             logger.info(
                 f"Отключение игрока {player_id}. Отмена подписки {conn_data.consumer_tag}."
             )
-            conn_data = self.connections.pop(player_id)
             try:
                 await conn_data.websocket.close()
             except RuntimeError:

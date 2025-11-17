@@ -23,7 +23,6 @@ from backend.src.game.contracts.game_contract import (
     PlayerInput,
 )
 from backend.src.game.models.game import FoolGame
-from backend.src.game.config.settings import DEBUG
 from backend.src.game.utils.errors import GameLogicError
 
 logger = logging.getLogger(__name__)
@@ -101,7 +100,7 @@ async def join_game(
     except GameLogicError as e:
         raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
-        logger.error(f"Ошибка присоединения: {e}", exc_info=DEBUG)
+        logger.error(f"Ошибка присоединения: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
 
     return GameJoinedResponse(

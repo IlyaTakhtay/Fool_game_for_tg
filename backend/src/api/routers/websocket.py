@@ -1,6 +1,6 @@
 import logging
 
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 from dishka import FromDishka
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from dishka.integrations.fastapi import inject
@@ -32,7 +32,6 @@ async def websocket_game(
     logger.info(
         f"WebSocket: Проверка авторизации игрока {player_id} для игры {game_id}"
     )
-
     try:
         game = await gm.get_player_game(player_id)
         if not game or game.game_id != game_id:
@@ -48,13 +47,15 @@ async def websocket_game(
     try:
         await cm.connect(player_id, game_id, websocket)
         await gm.publish_full_game_state(game)
-
+        validate_adapter = TypeAdapter(IncomingMessage)
         # Основной цикл обработки сообщений
         while True:
             json_data = await websocket.receive_json()
 
             try:
-                message = IncomingMessage.model_validate(json_data)
+
+                message = validate_adapter.validate_python(json_data)
+                logger.debug(f"Полученная сериализованная модель {message}")
                 current_game_state = await gm.get_game_by_id(game_id)
                 logger.info(
                     f"Получено сообщение от {player_id} в игре {game_id}: тип={message.type}"
@@ -70,6 +71,7 @@ async def websocket_game(
             except GameLogicError as e:
                 logger.warning(f"Игровая ошибка для {player_id}: {e}")
                 await send_error_to_client(websocket, str(e), e.error_code)
+                await gm.publish_player_game_state(player_id, current_game_state)
 
             except Exception as e:
                 logger.error(
@@ -121,5 +123,6 @@ async def send_error_to_client(
 
     try:
         await websocket.send_json(error_response)
+        
     except Exception as e:
         logger.warning(f"Не удалось отправить ошибку клиенту: {e}")

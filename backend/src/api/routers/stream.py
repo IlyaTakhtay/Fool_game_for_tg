@@ -12,7 +12,6 @@ from backend.src.api.exceptions import PlayerNotInGameError
 from backend.src.api.managers.game_manager import GameManager
 from backend.src.config import AppSettings
 from backend.src.game.models.game import FoolGame
-from backend.src.game.config.settings import DEBUG
 
 app_settings = AppSettings()
 router = APIRouter(
@@ -87,6 +86,6 @@ async def stream_games(
         except asyncio.CancelledError:
             logger.info("SSE соединение закрыто сервером.")
         except Exception as e:
-            logger.error(f"Ошибка в SSE потоке: {e}", exc_info=DEBUG)
+            logger.error(f"Ошибка в SSE потоке: {e}", exc_info=True)
 
     return EventSourceResponse(event_generator(gm))

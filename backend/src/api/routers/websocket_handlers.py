@@ -119,7 +119,7 @@ async def _handle_state_transition(
 
         await gm.publish_game_over_event(game, now_state.winner_id, now_state.loser_ids)
 
-        asyncio.create_task(reset_to_lobby_after_delay(game, 3, gm))
+        asyncio.create_task(reset_to_lobby_after_delay(game, 0.5, gm))
     else:
         await gm.publish_full_game_state(game)
 

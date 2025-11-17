@@ -9,7 +9,6 @@ from backend.src.api.middlewares import setup_middlewares
 from backend.src.config import AppSettings, CorsSettings
 from backend.src.di.providers import create_container
 from backend.src.game.utils.logging_config import setup_logging
-from backend.src.game.config.settings import DEBUG
 
 
 def register_routers(app: FastAPI) -> None:

@@ -1,27 +1,26 @@
 import logging
 from typing import Callable, Tuple
 from aio_pika import Message, ExchangeType
-from aio_pika.abc import AbstractRobustChannel, AbstractRobustQueue
+from aio_pika.abc import AbstractRobustChannel, AbstractRobustQueue, AbstractExchange
+from pydantic import BaseModel
 
-from backend.src.messaging.abstractions import AbstractEventBus, BaseEvent
+from backend.src.messaging.abstractions import AbstractEventBus
 
 
 logger = logging.getLogger(__name__)
 
 
 class RabbitMQEventBus(AbstractEventBus):
-    async def __init__(self, channel: AbstractRobustChannel, exchange_name: str):
+    def __init__(self, channel: AbstractRobustChannel, exchange: AbstractExchange):
+        """Простой синхронный конструктор."""
         self.channel = channel
-        self.exchange_name = exchange_name
-        self._exchange = await self.channel.declare_exchange(
-            name=self.exchange_name, type=ExchangeType.TOPIC, durable=True
-        )
+        self.exchange = exchange
 
-    async def publish(self, routing_key: str, event: BaseEvent):
+    async def publish(self, routing_key: str, event: BaseModel):
         """Публикует готовое к отправке событие."""
         message_body = event.model_dump_json().encode()
 
-        await self._exchange.publish(
+        await self.exchange.publish(
             Message(body=message_body, content_type="application/json"),
             routing_key=routing_key,
         )
@@ -37,10 +36,10 @@ class RabbitMQEventBus(AbstractEventBus):
         queue = await self.channel.declare_queue(exclusive=True, auto_delete=True)
 
         general_routing_key = f"game.{game_id}.*"
-        await queue.bind(self._exchange, routing_key=general_routing_key)
+        await queue.bind(self.exchange, routing_key=general_routing_key)
 
         personal_routing_key = f"game.{game_id}.player.{player_id}"
-        await queue.bind(self._exchange, routing_key=personal_routing_key)
+        await queue.bind(self.exchange, routing_key=personal_routing_key)
 
         logger.info(
             f"Очередь {queue.name} подписана на '{general_routing_key}' и '{personal_routing_key}'"

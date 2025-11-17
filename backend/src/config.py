@@ -78,6 +78,28 @@ class PostgresSettings(BaseSettings, StorageSettings):
         return self.postgres_url
 
 
+class RabbitMQSettings(StorageSettings):
+    "Настройки для брокера сообщений RabbitMQ"
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="RABBITMQ_", extra="ignore"
+    )
+
+    user: str = "guest"
+    password: str = "guest"
+    host: str = "rabbitmq"
+    port: int = 5672
+    exchange_name: str = "socket_events_exchange"
+
+    @property
+    def rabbitmq_url(self) -> str:
+        """Формируем URL для подключения"""
+        return f"amqp://{self.user}:{self.password}@" f"{self.host}:{self.port}/"
+
+    def get_connection_string(self) -> str:
+        return self.rabbitmq_url
+
+
 class CorsSettings(BaseSettings):
     """Настройки CORS"""
 

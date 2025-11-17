@@ -82,8 +82,8 @@ class GameOverState(GameState):
         )
 
     def get_allowed_actions(self) -> Dict[str, list]:
-        # В этом состоянии нет разрешенных действий
-        return {p.id_: [] for p in self.game.players}
+        # В этом состоянии разрешено только действие QUIT
+        return {p.id_: [PlayerAction.QUIT.name] for p in self.game.players}
 
     def get_state_info(self) -> Dict[str, Any]:
         return {

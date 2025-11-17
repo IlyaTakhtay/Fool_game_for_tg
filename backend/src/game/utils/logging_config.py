@@ -1,10 +1,12 @@
-from logging.handlers import RotatingFileHandler
 import logging
+from logging.handlers import RotatingFileHandler
 import os
 import sys
 
-from backend.src.game.config.settings import DEBUG
 from backend.src.config import AppSettings
+
+
+settings = AppSettings()
 
 
 def setup_logging():
@@ -15,7 +17,7 @@ def setup_logging():
     - Использует единый формат для всех логов.
     - Выводит логи в sys.stdout.
     """
-    match AppSettings.environment:
+    match settings.environment:
         case "development":
             log_level = logging.DEBUG
         case "production":
@@ -50,7 +52,7 @@ def setup_logging():
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setLevel(log_level)
     stream_handler.setFormatter(formatter)
-    if AppSettings.environment != "production":
+    if settings.environment != "production":
         root_logger.addHandler(file_handler)
     root_logger.addHandler(stream_handler)
 
