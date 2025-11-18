@@ -115,8 +115,9 @@ class GameProvider(Provider):
         self,
         game_repository: Annotated[IGameRepository, FromComponent(Components.GAME)],
         event_bus: AbstractEventBus,
+        redis: Annotated[Redis, FromComponent("")],
     ) -> GameManager:
-        return GameManager(game_repository, event_bus)
+        return GameManager(game_repository, event_bus, redis)
 
 
 class WebSocketProvider(Provider):

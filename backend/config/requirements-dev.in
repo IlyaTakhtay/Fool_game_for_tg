@@ -1,5 +1,5 @@
 -r requirements.in
-
+py-spy
 pytest
 black
 mypy

@@ -4,6 +4,7 @@ from pydantic import TypeAdapter, ValidationError
 from dishka import FromDishka
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from dishka.integrations.fastapi import inject
+from redis.asyncio import Redis
 
 from backend.src.api.exceptions import PlayerNotInGameError
 from backend.src.api.managers.game_manager import GameManager
@@ -27,6 +28,7 @@ async def websocket_game(
     player_id: str,
     gm: FromDishka[GameManager],
     cm: FromDishka[DistributedConnectionManager],
+    redis: FromDishka[Redis],
 ):
     """Основная точка входа для WebSocket-соединения игры."""
     logger.info(
@@ -53,14 +55,17 @@ async def websocket_game(
             json_data = await websocket.receive_json()
 
             try:
-
                 message = validate_adapter.validate_python(json_data)
                 logger.debug(f"Полученная сериализованная модель {message}")
-                current_game_state = await gm.get_game_by_id(game_id)
-                logger.info(
-                    f"Получено сообщение от {player_id} в игре {game_id}: тип={message.type}"
-                )
-                await MessageRouter.route(message, player_id, current_game_state, gm)
+
+                async with redis.lock(f"lock:game:{game_id}", timeout=10):
+                    current_game_state = await gm.get_game_by_id(game_id)
+                    logger.info(
+                        f"Получено сообщение от {player_id} в игре {game_id}: тип={message.type}"
+                    )
+                    await MessageRouter.route(
+                        message, player_id, current_game_state, gm
+                    )
 
             except ValidationError as e:
                 logger.warning(f"Ошибка валидации от {player_id}: {e}")
