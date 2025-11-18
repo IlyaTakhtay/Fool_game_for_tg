@@ -1,6 +1,9 @@
 import logging
+import asyncio
 from uuid import uuid4
 from typing import List
+
+from redis.asyncio import Redis
 
 from backend.src.api.exceptions import (
     GameNotFoundError,
@@ -27,9 +30,15 @@ logger = logging.getLogger(__name__)
 class GameManager:
     """Сервисный слой для управления играми. Отвечает за бизнес-логику."""
 
-    def __init__(self, game_repository: IGameRepository, event_bus: AbstractEventBus):
+    def __init__(
+        self,
+        game_repository: IGameRepository,
+        event_bus: AbstractEventBus,
+        redis_client: Redis,
+    ):
         self._repo: IGameRepository = game_repository
         self._event_bus: AbstractEventBus = event_bus
+        self._redis: Redis = redis_client
 
     async def create_game(self, players_limit: int) -> FoolGame:
         """Создать новую игру."""
@@ -43,7 +52,7 @@ class GameManager:
         if not game_id:
             raise NotImplementedError("Поиск открытой игры еще не реализован")
 
-        async with self._repo.client.lock(f"lock:game:{game_id}", timeout=10):
+        async with self._redis.lock(f"lock:game:{game_id}", timeout=10):
             game = await self._repo.get_by_id(game_id)
             if not game:
                 raise GameNotFoundError(f"Игра {game_id} не найдена")
