@@ -14,7 +14,7 @@ export const options = {
   scenarios: {
     game_pairs: {
       executor: 'per-vu-iterations',
-      vus: 100,           // 100 VU = 50 игр (по 2 игрока)
+      vus: 1000,           // 1000 VU = 50 игр (по 2 игрока)
       iterations: 1,
       maxDuration: '3m',
     },
@@ -31,7 +31,7 @@ export const options = {
 const BASE_URL = 'http://localhost:8000/api/v1';
 
 export function setup() {
-  const pairCount = 50;
+  const pairCount = 500;
   const gameIds = [];
   console.log(`\n=== SETUP: creating ${pairCount} games ===`);
   for (let i = 0; i < pairCount; i++) {
@@ -81,12 +81,13 @@ export default function (data) {
   const res = ws.connect(wsUrl, function (socket) {
     let gameState = {};
     let turnInterval;
+    let actionInFlight = false; // Lock to prevent acting on stale state
 
     socket.on('open', () => {
       console.log(`✓ [${pairLabel}] WS CONNECTED`);
       socket.send(JSON.stringify({ type: 'player_connected' }));
       messagesSent.add(1);
-      turnInterval = socket.setInterval(takeTurn, 50);
+      turnInterval = socket.setInterval(takeTurn, 300);
     });
 
     socket.on('message', (data) => {
@@ -116,11 +117,15 @@ export default function (data) {
             console.error(`❌ [${pairLabel}] Server error: ${msg.data?.message} (${errorCode})`);
             errorRate.add(1);
           }
+          // An error from the server also constitutes a response, so we can act again.
+          actionInFlight = false;
           return;
         }
         
         if (msg.type === 'connection_confirmed') {
           gameState = msg.data;
+          // We have a new state, so we are free to act.
+          actionInFlight = false;
         }
       } catch (e) {
         console.error(`❌ [${pairLabel}] Error parsing message: ${e.message}`);
@@ -141,20 +146,21 @@ export default function (data) {
     });
 
     function takeTurn() {
+      if (actionInFlight) return; // Don't act if waiting for a response
       if (!gameState || Object.keys(gameState).length === 0) return;
 
       const { current_state, status, allowed_actions = [], position, attacker_position, defender_position, cards = [], table_cards = [], room_players = [], trump_suit } = gameState;
+      let actionTaken = false;
 
       if (current_state === 'LobbyState') {
-        if (status === 'unready' && allowed_actions.includes('READY')) {
-          console.log(`📤 [${pairLabel}] Sending READY`);
+        // Wait until the lobby is full before getting ready to avoid race conditions.
+        if (room_players.length === 2 && status === 'unready' && allowed_actions.includes('READY')) {
+          console.log(`📤 [${pairLabel}] Lobby is full, sending READY`);
           socket.send(JSON.stringify({ type: 'change_status', data: { status: 'ready' } }));
           messagesSent.add(1);
+          actionTaken = true;
         }
-        return;
-      }
-
-      if (current_state === 'PlayRoundWithoutThrowState') {
+      } else if (current_state === 'PlayRoundWithoutThrowState') {
         const myHand = cards.sort((a, b) => getRankValue(a.rank) - getRankValue(b.rank));
         const isMyTurnToDefend = defender_position === position && allowed_actions.includes('DEFEND');
         const isMyTurnToAttack = attacker_position === position && allowed_actions.includes('ATTACK');
@@ -170,43 +176,40 @@ export default function (data) {
             if (defCard) {
               socket.send(JSON.stringify({ type: 'play_card', data: { attack_card: attCard, defend_card: defCard } }));
               messagesSent.add(1);
-              return;
+              actionTaken = true;
             }
           }
-          if (allowed_actions.includes('TAKE') || allowed_actions.includes('PASS')) {
+          if (!actionTaken && (allowed_actions.includes('TAKE') || allowed_actions.includes('PASS'))) {
             socket.send(JSON.stringify({ type: 'pass_turn' }));
             messagesSent.add(1);
-            return;
+            actionTaken = true;
           }
-        }
-
-        // 2. ATTACK
-        if (isMyTurnToAttack) {
+        } else if (isMyTurnToAttack) {
           let cardToPlay = null;
           if (table_cards.length === 0) {
-            // Initial attack: play the weakest card.
             cardToPlay = myHand[0];
             if (cardToPlay) {
               console.log(`⚔️ [${pairLabel}] Attacking with ${cardToPlay.rank} of ${cardToPlay.suit}`);
               socket.send(JSON.stringify({ type: 'play_card', data: { attack_card: cardToPlay, defend_card: null } }));
               messagesSent.add(1);
-              return;
+              actionTaken = true;
             }
           }
-          // After initial attack, or if no card to attack with, just pass to be safe.
-          if (allowed_actions.includes('PASS')) {
+          if (!actionTaken && allowed_actions.includes('PASS')) {
             console.log(`⏭️ [${pairLabel}] Attacker is passing.`);
             socket.send(JSON.stringify({ type: 'pass_turn' }));
             messagesSent.add(1);
-            return;
+            actionTaken = true;
           }
-        }
-
-        if (allowed_actions.includes('PASS')) {
+        } else if (allowed_actions.includes('PASS')) {
           socket.send(JSON.stringify({ type: 'pass_turn' }));
           messagesSent.add(1);
-          return;
+          actionTaken = true;
         }
+      }
+      
+      if (actionTaken) {
+        actionInFlight = true; // Lock until next server response
       }
     }
   });
