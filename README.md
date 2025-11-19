@@ -55,11 +55,13 @@ _Full-stack реализация карточной игры "Дурак" с rea
     Все сообщения между клиентом и сервером следуют строго определенному формату с полями `"type"` и `"data"`.(тип действия, новые данные). Это позволяет выстроить единый стиль обраотки сообщений по websocket.
 ## Установка и Запуск
 ### Запуск через Docker (Рекомендуемый способ)
-* `git clone https://github.com/IlyaTakhtay/Fool_game_for_tg/`
-* `cd Fool_game_for_tg\backend`
-* `docker-compose up --build`
-### Локальный запуск (Без Docker)
-Backend: `cd backend\config`, `pip install -r requirements.txt` + `cd backend\api`, `uvicorn main:app --reload`
+*   `git clone https://github.com/IlyaTakhtay/Fool_game_for_tg/`
+*   `cd Fool_game_for_tg`
+*   `cd backend`
+*   `docker-compose -f docker-compose.infra.yml up -d --build`
+*   `docker-compose -f docker-compose.dev.yml up -d --build`
+### Локальный запуск backend инстанса (Без Docker)
+Backend: `cd backend/requirements`, `pip install -r requirements-dev.txt`, `cd ..`, `uvicorn src.main:app --reload`
 Frontend: `cd frontend`, `npm install`, `npm start`
 
 ## Планы на будущее
