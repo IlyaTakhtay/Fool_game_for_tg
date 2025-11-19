@@ -2,10 +2,10 @@ import logging
 import traceback
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from backend.src.game.utils.game_interface import Game, GameState
+from backend.src.game.states.abc.states_abstractions import Game, GameState
 from backend.src.game.states.lobby_state import LobbyState
 from backend.src.game.states.deal_state import DealState
-from backend.src.game.states.game_over import GameOverState
+from backend.src.game.states.game_over_state import GameOverState
 from backend.src.game.states.play_round_state import PlayRoundWithoutThrowState
 from backend.src.game.models.deck import Deck
 from backend.src.game.models.player import Player, PlayerStatus

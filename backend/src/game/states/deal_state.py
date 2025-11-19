@@ -13,7 +13,7 @@ from backend.src.game.contracts.game_contract import (
     StateTransition,
 )
 from backend.src.game.models.player import Player, PlayerStatus
-from backend.src.game.utils.game_interface import GameState
+from backend.src.game.states.abc.states_abstractions import GameState
 from backend.src.game.models.card import Card, Rank, Suit
 
 logger = logging.getLogger(__name__)

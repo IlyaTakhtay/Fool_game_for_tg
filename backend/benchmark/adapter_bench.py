@@ -19,7 +19,7 @@ from backend.src.game.models.card import Card, Suit, Rank, TrumpCard
 from backend.src.game.models.deck import Deck
 from backend.src.game.states.lobby_state import LobbyState
 from backend.src.game.states.play_round_state import PlayRoundWithoutThrowState
-from backend.src.game.states.game_over import GameOverState
+from backend.src.game.states.game_over_state import GameOverState
 
 
 def benchmark(iterations: int = 100, warmup: int = 10):

@@ -1,7 +1,7 @@
 from typing import List, Dict, Set, Any
 
 from backend.src.game.models.card import Card, Suit, TrumpCard, Rank
-from backend.src.game.utils.errors import (
+from backend.src.game.contracts.game_errors import (
     InvalidDefenseError,
     WeakDefenseError,
     CardNotOnTableError,

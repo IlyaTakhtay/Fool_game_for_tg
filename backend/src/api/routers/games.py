@@ -23,7 +23,7 @@ from backend.src.game.contracts.game_contract import (
     PlayerInput,
 )
 from backend.src.game.models.game import FoolGame
-from backend.src.game.utils.errors import GameLogicError
+from backend.src.game.contracts.game_errors import GameLogicError
 
 logger = logging.getLogger(__name__)
 ws_settings = WebSocketSettings()

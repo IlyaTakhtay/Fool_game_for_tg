@@ -112,7 +112,7 @@ class RedisFoolGameAdapter:
             game.players[unpacked["df"]].id_ if unpacked["df"] is not None else None
         )
 
-        from backend.src.game.utils.game_interface import GameState
+        from backend.src.game.states.abc.states_abstractions import GameState
         from backend.src.game.states.lobby_state import LobbyState
 
         state_name = RedisFoolGameAdapter.ID_TO_STATE[unpacked["st"]]
