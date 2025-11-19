@@ -16,7 +16,7 @@ from backend.src.api.models.game import (
     GameInfoResponse,
     GameJoinedResponse,
 )
-from backend.src.config import AppSettings, WebSocketSettings
+from backend.src.settings import AppSettings, WebSocketSettings
 from backend.src.game.contracts.game_contract import (
     ActionResult,
     PlayerAction,

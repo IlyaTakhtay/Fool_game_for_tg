@@ -10,5 +10,6 @@ websockets
 sse_starlette
 dishka
 pydantic-settings
+python-dotenv
 lz4
 aio-pika

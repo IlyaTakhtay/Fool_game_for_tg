@@ -21,7 +21,7 @@ from backend.src.api.managers.connection_managaer import (
     DistributedConnectionManager,
 )
 from backend.src.api.managers.game_manager import GameManager
-from backend.src.config import RabbitMQSettings, RedisSettings
+from backend.src.settings import RabbitMQSettings, RedisSettings
 from backend.src.messaging.abstractions import AbstractEventBus
 from backend.src.messaging.rabbitmq.event_bus import RabbitMQEventBus
 from backend.src.storage.repositories.interfaces import IGameRepository

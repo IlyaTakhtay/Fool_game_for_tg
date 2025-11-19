@@ -12,7 +12,7 @@ from backend.src.api.managers.connection_managaer import DistributedConnectionMa
 from backend.src.api.models.websocket.enums import OutgoingMessageType
 from backend.src.api.models.websocket.requests import IncomingMessage
 from backend.src.api.routers.websocket_handlers import MessageRouter
-from backend.src.config import AppSettings
+from backend.src.settings import AppSettings
 from backend.src.game.utils.errors import GameLogicError
 
 app_settings = AppSettings()

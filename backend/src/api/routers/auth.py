@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
-from backend.src.config import AppSettings
+from backend.src.settings import AppSettings
 
 app_settings = AppSettings()
 logger = logging.getLogger(__name__)

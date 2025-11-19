@@ -10,7 +10,7 @@ from dishka.integrations.fastapi import DishkaRoute
 
 from backend.src.api.exceptions import PlayerNotInGameError
 from backend.src.api.managers.game_manager import GameManager
-from backend.src.config import AppSettings
+from backend.src.settings import AppSettings
 from backend.src.game.models.game import FoolGame
 
 app_settings = AppSettings()
