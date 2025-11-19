@@ -1,4 +1,5 @@
 # FoolGame mini-app
+
 _Full-stack реализация карточной игры "Дурак" с real-time мультиплеером на FastAPI и React._
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
@@ -17,6 +18,7 @@ _Full-stack реализация карточной игры "Дурак" с rea
 ![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
 
 ## Демонстрация
+
 <table>
   <tr>
     <td align="center"><strong>Defend Gameplay</strong></td>
@@ -28,16 +30,15 @@ _Full-stack реализация карточной игры "Дурак" с rea
   </tr>
 </table>
 
-
-
 ## О проекте
 
 Этот проект — это, в первую очередь, исследование принципов разработки backend-приложений для real-time игр.
 
 Основной фокус проекта — архитектура бэкенда на **FastAPI**, где реализованы:
-*   **Управление WebSocket-соединениями** для множества игроков в рамках одной игровой комнаты.
-*   **Машина состояний (State Machine)**, управляющая логикой игры (ходы, защита, пас, конец раунда).
-*   **Четко определенный протокол обмена сообщениями** между клиентом и сервером и **State Machine**.
+
+- **Управление WebSocket-соединениями** для множества игроков в рамках одной игровой комнаты.
+- **Машина состояний (State Machine)**, управляющая логикой игры (ходы, защита, пас, конец раунда).
+- **Четко определенный протокол обмена сообщениями** между клиентом и сервером и **State Machine**.
 
 Фронтенд на React выступает в роли клента, который полностью раскрывает и тестирует возможности бэкенда.
 
@@ -45,32 +46,40 @@ _Full-stack реализация карточной игры "Дурак" с rea
 
 ### Backend
 
-*   **Централизованный Connection Manager**
-    Для управления жизненным циклом WebSocket-соединений используется единый менеджер, который отвечает за подключение, отключение и рассылку сообщений игрокам в рамках одной игровой комнаты.
+- **Централизованный Connection Manager**
+  Для управления жизненным циклом WebSocket-соединений используется единый менеджер, который отвечает за подключение, отключение и рассылку сообщений игрокам в рамках одной игровой комнаты.
 
-*   **Паттерн "Заместитель" (Proxy) для управления состоянием игры**
-    Для разделения логики управления игрой на различных этапах используется паттерн "Заместитель". Это позволяет инкапсулировать внутреннюю работу игры, упростить обработку входящих команд от пользователей и обеспечить единый интерфейс для управления всеми игровыми состояниями.
-    
-*   **Четкий Протокол Обмена Данными**
-    Все сообщения между клиентом и сервером следуют строго определенному формату с полями `"type"` и `"data"`.(тип действия, новые данные). Это позволяет выстроить единый стиль обраотки сообщений по websocket.
+- **Паттерн "Заместитель" (Proxy) для управления состоянием игры**
+  Для разделения логики управления игрой на различных этапах используется паттерн "Заместитель". Это позволяет инкапсулировать внутреннюю работу игры, упростить обработку входящих команд от пользователей и обеспечить единый интерфейс для управления всеми игровыми состояниями.
+- **Четкий Протокол Обмена Данными**
+  Все сообщения между клиентом и сервером следуют строго определенному формату с полями `"type"` и `"data"`.(тип действия, новые данные). Это позволяет выстроить единый стиль обраотки сообщений по websocket.
+
 ## Установка и Запуск
+
 ### Запуск через Docker (Рекомендуемый способ)
-*   `git clone https://github.com/IlyaTakhtay/Fool_game_for_tg/`
-*   `cd Fool_game_for_tg`
-*   `cd backend`
-*   `docker-compose -f docker-compose.infra.yml up -d --build`
-*   `docker-compose -f docker-compose.dev.yml up -d --build`
+
+- `git clone https://github.com/IlyaTakhtay/Fool_game_for_tg/`
+- `cd Fool_game_for_tg`
+- `cd backend`
+- `docker-compose -f docker-compose.infra.yml up -d --build`
+- `docker-compose -f docker-compose.dev.yml up -d --build`
+
 ### Локальный запуск backend инстанса (Без Docker)
+
 Backend: `cd backend/requirements`, `pip install -r requirements-dev.txt`, `cd ..`, `uvicorn src.main:app --reload`
 Frontend: `cd frontend`, `npm install`, `npm start`
 
-## Планы на будущее
+## Project objectives
+
 - [x] Redis.
-- [ ] Fast API Authorization to guest.
-- [ ] Test coverage 80%
-- [ ] Hand cards filtering + hand cards owerflow problem
-- [ ] Replishing, drawback, and on table drop cards animations
-- [ ] Implement Tossing cards from others
-- [ ] Updated rooms settings
-- [ ] Make as telegramm mini-app
-- [ ] Player Statistics
+- [x] Make backend instace without storing any game data.
+- [/] Optimize size of data transfer objects (partially done).
+- [ ] Implement Authorization to a guest user.
+- [ ] Implement Tossing cards from others.
+- [ ] Test coverage 80%.
+- [ ] CI/CD.
+- [/] Benchmark and profiling weak points (partially done).
+- [ ] Implement game room settings.
+- [ ] Player Statistics.
+- [ ] Switch to incremental update communication model.
+- [ ] Make as telegramm mini-app.
