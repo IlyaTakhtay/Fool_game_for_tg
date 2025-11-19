@@ -3,7 +3,7 @@ from logging.handlers import RotatingFileHandler
 import os
 import sys
 
-from backend.src.config import AppSettings
+from backend.src.settings import AppSettings
 
 
 settings = AppSettings()
@@ -27,7 +27,7 @@ def setup_logging():
         case _:
             log_level = logging.INFO
 
-    log_format = "[%(asctime)s] - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d): [Worker %(process)d] %(message)s"
+    log_format = "[%(asctime)s] [%(levelname)s] [%(name)s] [PID:%(process)d]: %(message)s"
 
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
@@ -56,4 +56,5 @@ def setup_logging():
         root_logger.addHandler(file_handler)
     root_logger.addHandler(stream_handler)
 
+    logging.disable(logging.CRITICAL)
     logging.info("Система логирования успешно настроена.")
