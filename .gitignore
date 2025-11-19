@@ -13,7 +13,6 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
 develop-eggs/
 dist/
 downloads/
@@ -214,8 +213,6 @@ bower_components
 # node-waf configuration
 .lock-wscript
 
-# Compiled binary addons (https://nodejs.org/api/addons.html)
-build/Release
 
 # Dependency directories
 node_modules/
@@ -337,10 +334,6 @@ Network Trash Folder
 Temporary Items
 .apdisk
 
-### ReactNative.Android Stack ###
-# Gradle files
-.gradle/
-build/
 
 # Local configuration file (sdk path, etc)
 local.properties
@@ -386,10 +379,6 @@ buck-out/
 .buckversion
 .fakebuckversion
 
-### ReactNative.Gradle Stack ###
-.gradle
-**/build/
-!src/**/build/
 
 # Ignore Gradle GUI config
 gradle-app.setting
