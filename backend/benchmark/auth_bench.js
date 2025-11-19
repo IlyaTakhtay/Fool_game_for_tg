@@ -7,7 +7,7 @@ export const errorRate = new Rate('errors');
 
 // Options for the load test
 export const options = {
-  vus: 50,          // 50 virtual users
+  vus: 150,          // 50 virtual users
   duration: '10s',  // run for 10 seconds
   thresholds: {
     'http_req_failed': ['rate<0.01'], // <1% errors
@@ -17,6 +17,8 @@ export const options = {
 };
 
 const BASE_URL = 'http://localhost:8000/api/v1';
+// const BASE_URL = 'http://138.124.117.74:8000/api/v1';
+
 
 export default function () {
   const payload = JSON.stringify({

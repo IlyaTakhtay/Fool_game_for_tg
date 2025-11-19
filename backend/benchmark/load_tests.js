@@ -14,7 +14,7 @@ export const options = {
   scenarios: {
     game_pairs: {
       executor: 'per-vu-iterations',
-      vus: 1000,           // 1000 VU = 50 игр (по 2 игрока)
+      vus: 500,           // 500 VU = 250 игр (по 2 игрока)
       iterations: 1,
       maxDuration: '3m',
     },
@@ -29,9 +29,11 @@ export const options = {
 };
 
 const BASE_URL = 'http://localhost:8000/api/v1';
+// const BASE_URL = 'http://138.124.117.74:8000/api/v1';
+
 
 export function setup() {
-  const pairCount = 500;
+  const pairCount = 250;
   const gameIds = [];
   console.log(`\n=== SETUP: creating ${pairCount} games ===`);
   for (let i = 0; i < pairCount; i++) {

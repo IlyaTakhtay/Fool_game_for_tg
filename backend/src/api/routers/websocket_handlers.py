@@ -127,7 +127,7 @@ async def _handle_state_transition(
 
 
 @MessageRouter.register("change_status")
-@profile_to_file("handle_status_change")
+# @profile_to_file("handle_status_change")
 async def handle_player_status_changed(
     player_id: str,
     game: FoolGame,
@@ -151,7 +151,7 @@ async def handle_player_status_changed(
 
 
 @MessageRouter.register("play_card")
-@profile_to_file("handle_play_card")
+# @profile_to_file("handle_play_card")
 async def handle_play_card(
     player_id: str,
     game: FoolGame,
@@ -203,7 +203,7 @@ async def handle_play_card(
 
 
 @MessageRouter.register("pass_turn")
-@profile_to_file("handle_pass_turn")
+# @profile_to_file("handle_pass_turn")
 async def handle_pass_turn(
     player_id: str,
     game: FoolGame,
@@ -224,7 +224,7 @@ async def handle_pass_turn(
 
 
 @MessageRouter.register("quit_game")
-@profile_to_file("handle_quit_game")
+# @profile_to_file("handle_quit_game")
 async def handle_quit_game(
     player_id: str,
     game: FoolGame,
