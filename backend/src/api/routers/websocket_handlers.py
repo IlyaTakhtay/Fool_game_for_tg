@@ -20,10 +20,8 @@ from backend.src.game.contracts.game_contract import (
 )
 from backend.src.game.models.card import Card
 from backend.src.game.models.game import FoolGame
-from backend.src.game.states.game_over import GameOverState
-from backend.src.game.utils.errors import GameLogicError, WrongTurnError
-
-from backend.src.utils.profiler import profile_to_file
+from backend.src.game.states.game_over_state import GameOverState
+from backend.src.game.contracts.game_errors import GameLogicError, WrongTurnError
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +125,6 @@ async def _handle_state_transition(
 
 
 @MessageRouter.register("change_status")
-# @profile_to_file("handle_status_change")
 async def handle_player_status_changed(
     player_id: str,
     game: FoolGame,
@@ -151,7 +148,6 @@ async def handle_player_status_changed(
 
 
 @MessageRouter.register("play_card")
-# @profile_to_file("handle_play_card")
 async def handle_play_card(
     player_id: str,
     game: FoolGame,
@@ -203,7 +199,6 @@ async def handle_play_card(
 
 
 @MessageRouter.register("pass_turn")
-# @profile_to_file("handle_pass_turn")
 async def handle_pass_turn(
     player_id: str,
     game: FoolGame,
@@ -224,7 +219,6 @@ async def handle_pass_turn(
 
 
 @MessageRouter.register("quit_game")
-# @profile_to_file("handle_quit_game")
 async def handle_quit_game(
     player_id: str,
     game: FoolGame,
