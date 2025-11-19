@@ -60,6 +60,7 @@ services:
 networks:
   fool_game_network:
     driver: bridge
+    name: fool_game_network
 
 volumes:
   postgres_data:
