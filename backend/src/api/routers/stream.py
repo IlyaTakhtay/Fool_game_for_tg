@@ -8,6 +8,7 @@ from sse_starlette.sse import EventSourceResponse
 from dishka.integrations.fastapi import DishkaRoute
 
 
+from backend.src.api.dependencies.jwt_auth import verify_token
 from backend.src.api.exceptions import PlayerNotInGameError
 from backend.src.api.managers.game_manager import GameManager
 from backend.src.settings import AppSettings
@@ -48,12 +49,14 @@ async def get_games_list(
 async def stream_games(
     gm: FromDishka[GameManager],
     request: Request,
+    current_user: dict = Depends(verify_token),
 ):
     """
     Создает Server-Sent Events (SSE) поток для отправки обновлений списка игр.
     Args:
         request: Объект запроса FastAPI.
         gm: Экземпляр менеджера игр.
+        current_user: Зависимость для проверки аутентификации пользователя.
 
     Returns:
         EventSourceResponse, который транслирует обновления клиенту.

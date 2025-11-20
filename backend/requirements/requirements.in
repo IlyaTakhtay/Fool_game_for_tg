@@ -13,3 +13,5 @@ pydantic-settings
 python-dotenv
 lz4
 aio-pika
+python-jose[cryptography]
+passlib[bcrypt]

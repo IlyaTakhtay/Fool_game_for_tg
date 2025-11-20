@@ -1,68 +1,75 @@
 import logging
 import uuid
-from fastapi import APIRouter, HTTPException, Request, status
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Request, status, Response
 
-from backend.src.settings import AppSettings
+from backend.src.api.models.game import PlayerAuthResponse
+from backend.src.settings import AppSettings, JWTSettings
+from backend.src.api.dependencies.jwt_auth import create_access_token
+from backend.src.game.utils.name_generator import generate_player_name_with_suffix
 
 app_settings = AppSettings()
+jwt_settings = JWTSettings()
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=f"/api/{app_settings.api_version_prefix}", tags=["Auth"])
 
 
-class AuthGuestRequest(BaseModel):
-    player_name: str
-
-
-class AuthGuestResponse(BaseModel):
-    player_id: str
-
-
-@router.post("/auth_guest", response_model=AuthGuestResponse)
-async def auth_guest(request: Request, body: AuthGuestRequest) -> AuthGuestResponse:
+@router.post("/auth_guest", response_model=PlayerAuthResponse)
+async def auth_guest(request: Request, response: Response) -> PlayerAuthResponse:
     """Аутентификация гостевого игрока.
 
-    Генерирует уникальный ID игрока и возвращает его.
+    Генерирует случайное имя и уникальный ID игрока,
+    возвращая JWT токен в httpOnly куки.
 
     Args:
         request: Объект запроса.
-        body: Тело запроса с именем игрока.
+        response: Объект ответа для установки куки.
 
     Returns:
-        Объект AuthGuestResponse, содержащий player_id.
+        Объект Response с JWT токеном в httpOnly куки.
 
     Raises:
-        HTTPException: Если имя игрока не содержит от 2 до 20 символов.
-        HTTPException: При возникновении других непредвиденных ошибок.
+        HTTPException: При возникновении непредвиденных ошибок.
     """
-    player_name = body.player_name
     logger.info(
         f"Получен запрос на авторизацию гостя. Headers: {dict(request.headers)}"
     )
-    logger.info(f"Query параметры: {dict(request.query_params)}")
-    logger.info(f"Имя игрока: {player_name}")
 
     try:
-        if not (2 <= len(player_name) <= 20):
-            logger.warning(f"Некорректная длина имени: {len(player_name)}")
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Имя игрока должно содержать от 2 до 20 символов",
-            )
-
+        player_name = generate_player_name_with_suffix()
         player_id = str(uuid.uuid4())
         logger.info(f"Создан новый игрок. ID: {player_id}, Имя: {player_name}")
 
-        response = AuthGuestResponse(player_id=player_id)
-        logger.info(f"Отправляем ответ: {response}")
-        return response
+        access_token_data = {"player_id": player_id, "player_name": player_name}
+        access_token = create_access_token(access_token_data)
 
-    except HTTPException as e:
-        logger.error(f"Ошибка валидации: {e.detail}")
-        raise
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            samesite="lax",
+            secure=jwt_settings.cookie_secure,
+            max_age=jwt_settings.access_token_expire_hours * 3600,
+        )
+        return PlayerAuthResponse(**access_token_data)
+
     except Exception as e:
         logger.error(f"Неожиданная ошибка при авторизации: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Внутренняя ошибка сервера",
         )
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    """Удаление аутентификационной cookie."""
+    response.set_cookie(
+        key="access_token",
+        value="",
+        httponly=True,
+        samesite="lax",
+        secure=jwt_settings.cookie_secure,
+        max_age=0,  # Установка max_age=0 удаляет cookie
+    )
+    response.status_code = status.HTTP_200_OK
+    return {"status": "ok", "detail": "Logged out"}

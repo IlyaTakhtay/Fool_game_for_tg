@@ -22,6 +22,19 @@ class AppSettings(BaseSettings):
     worker_id: str = Field(default_factory=lambda: str(uuid4()))
 
 
+class JWTSettings(BaseSettings):
+    """Настройки JWT"""
+
+    model_config = SettingsConfigDict(
+        env_file=".env", env_prefix="JWT_", extra="ignore"
+    )
+
+    secret_key: str
+    algorithm: str = "HS256"
+    access_token_expire_hours: int = 24  # 1 day
+    cookie_secure: bool = False  # Установить True для production с HTTPS
+
+
 class StorageSettings(ABC):
     """Абстрактные настройки хранилища"""
 

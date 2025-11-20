@@ -3,7 +3,7 @@ import msgspec.json
 
 from pydantic import TypeAdapter, ValidationError
 from dishka import FromDishka
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status, HTTPException
 from dishka.integrations.fastapi import inject
 from redis.asyncio import Redis
 
@@ -15,6 +15,7 @@ from backend.src.api.models.websocket.requests import IncomingMessage
 from backend.src.api.routers.websocket_handlers import MessageRouter
 from backend.src.settings import AppSettings
 from backend.src.game.contracts.game_errors import GameLogicError
+from backend.src.api.dependencies.jwt_auth import verify_token
 
 app_settings = AppSettings()
 router = APIRouter(prefix=f"/api/{app_settings.api_version_prefix}", tags=["Games"])
@@ -26,12 +27,33 @@ logger = logging.getLogger(__name__)
 async def websocket_game(
     websocket: WebSocket,
     game_id: str,
-    player_id: str,
     gm: FromDishka[GameManager],
     cm: FromDishka[DistributedConnectionManager],
     redis: FromDishka[Redis],
 ):
     """Основная точка входа для WebSocket-соединения игры."""
+
+    access_token = None
+    # Extract token from cookie headers
+    for cookie in websocket.headers.get("cookie", "").split(";"):
+        if "access_token" in cookie:
+            access_token = cookie.split("=")[1]
+            break
+
+    if not access_token:
+        reason = "Отсутствует токен доступа в куках."
+        logger.warning(reason)
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason=reason)
+        return
+
+    try:
+        current_user = verify_token(access_token)
+        player_id = current_user["player_id"]
+    except HTTPException as e:
+        logger.warning(f"Ошибка аутентификации WebSocket: {e.detail}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason=e.detail)
+        return
+
     logger.info(
         f"WebSocket: Проверка авторизации игрока {player_id} для игры {game_id}"
     )
@@ -132,6 +154,6 @@ async def send_error_to_client(
     try:
         encoded_response = msgspec.json.encode(error_response)
         await websocket.send_text(encoded_response.decode("utf-8"))
-        
+
     except Exception as e:
         logger.warning(f"Не удалось отправить ошибку клиенту: {e}")

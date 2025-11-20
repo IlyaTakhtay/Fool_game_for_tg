@@ -24,6 +24,10 @@ from backend.src.game.contracts.game_contract import (
 )
 from backend.src.game.models.game import FoolGame
 from backend.src.game.contracts.game_errors import GameLogicError
+from backend.src.api.dependencies.jwt_auth import (
+    verify_token,
+)
+
 
 logger = logging.getLogger(__name__)
 ws_settings = WebSocketSettings()
@@ -45,12 +49,14 @@ router = APIRouter(
 async def create_game(
     gm: FromDishka[GameManager],
     set_players_limit: int = 2,
+    current_user: dict = Depends(verify_token),
 ) -> GameCreatedResponse:
     """Создает новую игру.
 
     Args:
         set_players_limit: Максимальное количество игроков для игры.
         gm: Экземпляр менеджера игр.
+        current_user: Зависимость авторизации, предоставляющая информацию о текущем пользователе.
 
     Returns:
         Объект GameCreatedResponse с ID игры и лимитом игроков.
@@ -58,6 +64,7 @@ async def create_game(
     Raises:
         HTTPException: Если лимит игроков не находится в диапазоне от 2 до 6.
     """
+    player_id = current_user["player_id"]
     if not (2 <= set_players_limit <= 6):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -76,15 +83,15 @@ async def create_game(
 )
 async def join_game(
     gm: FromDishka[GameManager],
-    player_id: str,
     game_id: str | None = None,
+    current_user: dict = Depends(verify_token),
 ) -> GameJoinedResponse:
     """Присоединяет игрока к игре.
 
     Args:
-        player_id: ID присоединяющегося игрока.
         game_id: ID игры для присоединения. Если None, находит доступную игру.
         gm: Экземпляр менеджера игр.
+        current_user: Зависимость, предоставляющая информацию о текущем пользователе.
 
     Returns:
         Объект GameJoinedResponse с деталями игры и игрока.
@@ -92,9 +99,11 @@ async def join_game(
     Raises:
         HTTPException: Если игра не найдена, заполнена, или если игрок уже в игре.
     """
+    player_id = current_user["player_id"]
+    player_name = current_user["player_name"]
     game = None
     try:
-        game = await gm.join_game(player_id, game_id)
+        game = await gm.join_game(player_id, game_id)  # implement player_name here
     except GameNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except GameLogicError as e:
@@ -114,13 +123,13 @@ async def join_game(
 @router.post("/exit_game", summary="Выйти из игры")
 async def exit_game(
     gm: FromDishka[GameManager],
-    player_id: str,
+    current_user: dict = Depends(verify_token),
 ) -> None:
     """Удаляет игрока из игры.
 
     Args:
-        player_id: ID удаляемого игрока.
         gm: Экземпляр менеджера игр.
+        current_user: Зависимость, предоставляющая информацию о текущем пользователе.
 
     Returns:
         None
@@ -128,6 +137,7 @@ async def exit_game(
     Raises:
         HTTPException: Если игрок не найден ни в одной игре.
     """
+    player_id = current_user["player_id"]
     try:
         await gm.exit_game(player_id)
     except PlayerNotInGameError as e:
@@ -155,13 +165,13 @@ async def exit_game(
 )
 async def active_game(
     gm: FromDishka[GameManager],
-    player_id: str,
+    current_user: dict = Depends(verify_token),
 ) -> GameInfoResponse:
     """Получает активную игру для игрока.
 
     Args:
-        player_id: ID игрока.
         gm: Экземпляр менеджера игр.
+        current_user: Зависимость, предоставляющая информацию о текущем пользователе.
 
     Returns:
         Объект GameInfoResponse с деталями игры игрока.
@@ -169,6 +179,7 @@ async def active_game(
     Raises:
         HTTPException: Если игрок не найден ни в одной игре.
     """
+    player_id = current_user["player_id"]
     try:
         game = await gm.get_player_game(player_id)
     except PlayerNotInGameError as e:
@@ -194,15 +205,18 @@ async def get_games(
     gm: FromDishka[GameManager],
     limit: int = 100,
     offset: int = 0,
+    current_user: dict = Depends(verify_token),
 ) -> list[GameInfoResponse]:
     """Получает список доступных игр.
 
     Args:
         gm: Экземпляр менеджера игр.
+        current_user: Зависимость, предоставляющая информацию о текущем пользователе.
 
     Returns:
         Список объектов GameInfoResponse.
     """
+    # player_id is not directly used here, but we still want to ensure authentication
     games = await gm.get_pending_games(limit, offset)
     return [
         GameInfoResponse(

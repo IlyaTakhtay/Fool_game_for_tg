@@ -1,6 +1,6 @@
 import logging
 import msgspec.json
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Any
 from aio_pika import Message, ExchangeType
 from aio_pika.abc import AbstractRobustChannel, AbstractRobustQueue, AbstractExchange
 from pydantic import BaseModel
@@ -18,9 +18,17 @@ class RabbitMQEventBus(AbstractEventBus):
         self.exchange = exchange
 
 
-    async def publish(self, routing_key: str, event: BaseModel):
-        """Публикует готовое к отправке событие."""
-        message_body = msgspec.json.encode(event)
+    async def publish(self, routing_key: str, event: Any):
+        """
+        Публикует событие. Если событие является Pydantic-моделью,
+        оно преобразуется в словарь перед сериализацией.
+        """
+        if isinstance(event, BaseModel):
+            payload = event.model_dump()
+        else:
+            payload = event  # Предполагаем, что это уже dict или другой сериализуемый тип
+
+        message_body = msgspec.json.encode(payload)
 
         await self.exchange.publish(
             Message(body=message_body, content_type="application/json"),

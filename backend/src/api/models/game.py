@@ -6,6 +6,9 @@ class Card(BaseModel):
     rank: str
     suit: str
 
+class PlayerAuthResponse(BaseModel):
+    player_id: str
+    player_name: str
 
 class Player(BaseModel):
     player_id: str
