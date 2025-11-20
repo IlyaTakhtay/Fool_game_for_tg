@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from dishka.integrations.fastapi import setup_dishka
 from backend.src.api.middlewares import setup_middlewares
 from backend.src.settings import AppSettings, CorsSettings
-from backend.src.di.providers import create_container
+from backend.src.di import create_container
 from backend.src.logging_config import setup_logging
 from backend.src.api.responses import MsgSpecJSONResponse
 
