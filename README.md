@@ -29,6 +29,14 @@ _Full-stack реализация карточной игры "Дурак" с rea
     <td><img src="./gameplay/attack.gif" alt="Attack gameplay" width="400"></td>
   </tr>
 </table>
+<table>
+  <tr>
+    <td align="center"><strong>Benchmark</strong></td>
+  </tr>
+  <tr>
+    <td><img src="./gameplay/benchmark.gif" alt="Benchmark" width="800"></td>
+  </tr>
+</table>
 
 ## О проекте
 
