@@ -1,14 +1,15 @@
 import logging
+import uvicorn
 from contextlib import asynccontextmanager
 from dishka import Container
 from fastapi import FastAPI
-import uvicorn
-from dishka.integrations.fastapi import setup_dishka
 
+from dishka.integrations.fastapi import setup_dishka
 from backend.src.api.middlewares import setup_middlewares
 from backend.src.settings import AppSettings, CorsSettings
 from backend.src.di.providers import create_container
 from backend.src.logging_config import setup_logging
+from backend.src.api.responses import MsgSpecJSONResponse
 
 
 def register_routers(app: FastAPI) -> None:
@@ -40,6 +41,7 @@ def create_app() -> FastAPI:
         title="Fool Game API",
         version="1.0",
         lifespan=lifespan,
+        default_response_class=MsgSpecJSONResponse,
     )
 
     # Setup DI

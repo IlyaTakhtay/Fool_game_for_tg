@@ -1,4 +1,5 @@
 import logging
+import msgspec.json
 from typing import Callable, Tuple
 from aio_pika import Message, ExchangeType
 from aio_pika.abc import AbstractRobustChannel, AbstractRobustQueue, AbstractExchange
@@ -16,9 +17,10 @@ class RabbitMQEventBus(AbstractEventBus):
         self.channel = channel
         self.exchange = exchange
 
+
     async def publish(self, routing_key: str, event: BaseModel):
         """Публикует готовое к отправке событие."""
-        message_body = event.model_dump_json().encode()
+        message_body = msgspec.json.encode(event)
 
         await self.exchange.publish(
             Message(body=message_body, content_type="application/json"),

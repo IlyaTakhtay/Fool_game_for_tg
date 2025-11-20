@@ -1,4 +1,5 @@
 import logging
+import msgspec.json
 
 from pydantic import TypeAdapter, ValidationError
 from dishka import FromDishka
@@ -50,9 +51,11 @@ async def websocket_game(
         await cm.connect(player_id, game_id, websocket)
         await gm.publish_full_game_state(game)
         validate_adapter = TypeAdapter(IncomingMessage)
+
         # Основной цикл обработки сообщений
         while True:
-            json_data = await websocket.receive_json()
+            text_data = await websocket.receive_text()
+            json_data = msgspec.json.decode(text_data)
 
             try:
                 message = validate_adapter.validate_python(json_data)
@@ -127,7 +130,8 @@ async def send_error_to_client(
         error_response["data"]["details"] = details
 
     try:
-        await websocket.send_json(error_response)
+        encoded_response = msgspec.json.encode(error_response)
+        await websocket.send_text(encoded_response.decode("utf-8"))
         
     except Exception as e:
         logger.warning(f"Не удалось отправить ошибку клиенту: {e}")
