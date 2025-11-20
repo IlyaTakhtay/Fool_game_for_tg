@@ -81,12 +81,12 @@ Frontend: `cd frontend`, `npm install`, `npm start`
 
 - [x] Redis.
 - [x] Make backend instace without storing any game data.
-- [/] Optimize size of data transfer objects (partially done).
+- [x] Optimize size of data transfer objects (partially done).
 - [ ] Implement Authorization to a guest user.
 - [ ] Implement Tossing cards from others.
 - [ ] Test coverage 80%.
 - [ ] CI/CD.
-- [/] Benchmark and profiling weak points (partially done).
+- [x] Benchmark and profiling weak points (partially done).
 - [ ] Implement game room settings.
 - [ ] Player Statistics.
 - [ ] Switch to incremental update communication model.
