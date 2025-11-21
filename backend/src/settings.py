@@ -15,7 +15,7 @@ class AppSettings(BaseSettings):
     name: str = "Game API"
     debug: bool = False
     environment: Literal["development", "staging", "production"] = "development"
-    api_version_prefix: str = "v1"
+    api_prefix: str = "api"
     host: str = "0.0.0.0"
     port: int = 8000
     reload: bool = False

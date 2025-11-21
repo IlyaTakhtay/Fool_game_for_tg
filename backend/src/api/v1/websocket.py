@@ -3,8 +3,8 @@ import msgspec.json
 
 from pydantic import TypeAdapter, ValidationError
 from dishka import FromDishka
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status, HTTPException
 from dishka.integrations.fastapi import inject
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
 from redis.asyncio import Redis
 
 from backend.src.api.exceptions import PlayerNotInGameError
@@ -12,13 +12,14 @@ from backend.src.api.managers.game_manager import GameManager
 from backend.src.api.managers.connection_managaer import DistributedConnectionManager
 from backend.src.api.models.websocket.enums import OutgoingMessageType
 from backend.src.api.models.websocket.requests import IncomingMessage
-from backend.src.api.routers.websocket_handlers import MessageRouter
-from backend.src.settings import AppSettings
+from backend.src.api.v1.websocket_handlers import MessageRouter
+
 from backend.src.game.contracts.game_errors import GameLogicError
 from backend.src.api.dependencies.jwt_auth import verify_token
 
-app_settings = AppSettings()
-router = APIRouter(prefix=f"/api/{app_settings.api_version_prefix}", tags=["Games"])
+router = APIRouter(
+    tags=["WebSocket"],
+)
 logger = logging.getLogger(__name__)
 
 

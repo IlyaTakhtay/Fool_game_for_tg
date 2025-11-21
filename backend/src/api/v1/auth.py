@@ -1,5 +1,6 @@
 import logging
 import uuid
+
 from fastapi import APIRouter, HTTPException, Request, status, Response
 
 from backend.src.api.models.game import PlayerAuthResponse
@@ -7,10 +8,9 @@ from backend.src.settings import AppSettings, JWTSettings
 from backend.src.api.dependencies.jwt_auth import create_access_token
 from backend.src.game.utils.name_generator import generate_player_name_with_suffix
 
-app_settings = AppSettings()
 jwt_settings = JWTSettings()
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix=f"/api/{app_settings.api_version_prefix}", tags=["Auth"])
+router = APIRouter(tags=["Auth"])
 
 
 @router.post("/auth_guest", response_model=PlayerAuthResponse)

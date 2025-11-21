@@ -9,14 +9,11 @@ from dishka.integrations.fastapi import DishkaRoute
 
 
 from backend.src.api.dependencies.jwt_auth import verify_token
-from backend.src.api.exceptions import PlayerNotInGameError
 from backend.src.api.managers.game_manager import GameManager
 from backend.src.settings import AppSettings
 from backend.src.game.models.game import FoolGame
 
-app_settings = AppSettings()
 router = APIRouter(
-    prefix=f"/api/{app_settings.api_version_prefix}",
     tags=["Games Stream"],
     route_class=DishkaRoute,
 )

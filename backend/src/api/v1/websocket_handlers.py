@@ -1,9 +1,8 @@
 import asyncio
 import logging
-from typing import Callable, Awaitable
 
+from typing import Callable, Awaitable
 from dishka import FromDishka
-from fastapi import WebSocket
 
 from backend.src.api.managers.game_manager import GameManager
 from backend.src.api.models.websocket.requests import (

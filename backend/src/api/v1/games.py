@@ -1,13 +1,11 @@
 import logging
 from uuid import uuid4
 from dishka import FromDishka
-from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, status
 from dishka.integrations.fastapi import DishkaRoute
 
 from backend.src.api.exceptions import (
     GameNotFoundError,
-    PlayerAlreadyInGameError,
     PlayerNotInGameError,
 )
 from backend.src.api.managers.game_manager import GameManager
@@ -17,12 +15,6 @@ from backend.src.api.models.game import (
     GameJoinedResponse,
 )
 from backend.src.settings import AppSettings, WebSocketSettings
-from backend.src.game.contracts.game_contract import (
-    ActionResult,
-    PlayerAction,
-    PlayerInput,
-)
-from backend.src.game.models.game import FoolGame
 from backend.src.game.contracts.game_errors import GameLogicError
 from backend.src.api.dependencies.jwt_auth import (
     verify_token,
@@ -34,7 +26,6 @@ ws_settings = WebSocketSettings()
 app_settings = AppSettings()
 
 router = APIRouter(
-    prefix=f"/api/{app_settings.api_version_prefix}",
     tags=["Games"],
     route_class=DishkaRoute,
 )
@@ -64,7 +55,6 @@ async def create_game(
     Raises:
         HTTPException: Если лимит игроков не находится в диапазоне от 2 до 6.
     """
-    player_id = current_user["player_id"]
     if not (2 <= set_players_limit <= 6):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -115,7 +105,7 @@ async def join_game(
     return GameJoinedResponse(
         game_id=game.game_id,
         player_id=player_id,
-        websocket_connection=f"{ws_settings.base_url}/api/{app_settings.api_version_prefix}/ws/{game.game_id}?player_id={player_id}",
+        websocket_connection=f"{ws_settings.base_url}/{app_settings.api_prefix}/v1/ws/{game.game_id}?player_id={player_id}",
         game_state=game.get_game_state(),
     )
 
@@ -191,7 +181,7 @@ async def active_game(
         game_id=game.game_id,
         players_limit=game.players_limit,
         players_inside=len(game.players),
-        websocket_connection=f"{ws_settings.base_url}/api/{app_settings.api_version_prefix}/ws/{game.game_id}?player_id={player_id}",
+        websocket_connection=f"{ws_settings.base_url}/{app_settings.api_prefix}/v1/ws/{game.game_id}?player_id={player_id}",
     )
 
 

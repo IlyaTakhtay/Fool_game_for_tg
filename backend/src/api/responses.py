@@ -1,5 +1,6 @@
-from typing import Any
 import msgspec.json
+
+from typing import Any
 from fastapi.responses import Response
 from pydantic import BaseModel
 

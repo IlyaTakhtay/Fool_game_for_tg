@@ -12,19 +12,6 @@ from backend.src.logging_config import setup_logging
 from backend.src.api.responses import MsgSpecJSONResponse
 
 
-def register_routers(app: FastAPI) -> None:
-    """Регистрация роутеров"""
-    from backend.src.api.routers.games import router as games_router
-    from backend.src.api.routers.auth import router as auth_router
-    from backend.src.api.routers.stream import router as stream_router
-    from backend.src.api.routers.websocket import router as websocket_router
-
-    app.include_router(games_router)
-    app.include_router(auth_router)
-    app.include_router(stream_router)
-    app.include_router(websocket_router)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
@@ -53,7 +40,8 @@ def create_app() -> FastAPI:
     setup_middlewares(app, cors_settings)
 
     # Register routers
-    register_routers(app)
+    from backend.src.api.v1 import router as v1_router
+    app.include_router(v1_router, prefix="/api/v1")
 
     return app
 
